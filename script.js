@@ -71,11 +71,10 @@ function handleFileUpload(event, type) {
 }
 
 function parseStaffData(data) {
-    // Skip header row if it exists
-    const startRow = isHeaderRow(data[0]) ? 1 : 0;
+    // Always skip first row (header)
     staffList = [];
 
-    for (let i = startRow; i < data.length; i++) {
+    for (let i = 1; i < data.length; i++) {
         const row = data[i];
         if (row && row.length >= 2 && row[1]) {  // At least id and name
             staffList.push({
@@ -83,30 +82,22 @@ function parseStaffData(data) {
                 name: row[1] || '',
                 department: row[2] || '',
                 position: row[3] || '',
-                photo: row[4] || 'default.jpg'
+                photo: row[4] || 'default.svg'
             });
         }
     }
 }
 
 function parsePrizesData(data) {
+    // Always skip first row (header)
     prizesList = [];
-    const startRow = (data[0] && typeof data[0][0] === 'string' && 
-                      data[0][0].toLowerCase().includes('prize')) ? 1 : 0;
-
-    for (let i = startRow; i < data.length; i++) {
+    
+    for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row && row[0]) {
+        if (row && row[0] !== undefined && row[0] !== null && row[0] !== '') {
             prizesList.push(row[0].toString().trim());
         }
     }
-}
-
-function isHeaderRow(row) {
-    if (!row || row.length === 0) return false;
-    const firstCell = (row[0] || '').toString().toLowerCase();
-    return firstCell.includes('id') || firstCell.includes('name') || 
-           firstCell.includes('staff') || firstCell === '#';
 }
 
 function checkReadyToStart() {
@@ -269,6 +260,7 @@ function sleep(ms) {
 // ===== Confetti Animation =====
 let confettiParticles = [];
 let animationId = null;
+let pendingParticles = 0;
 
 function resizeCanvas() {
     confettiCanvas.width = window.innerWidth;
@@ -322,13 +314,18 @@ class ConfettiParticle {
 }
 
 function launchConfetti() {
-    // Add new particles
-    for (let i = 0; i < 100; i++) {
+    const particleCount = 100;
+    pendingParticles += particleCount;
+    
+    // Add new particles with staggered timing
+    for (let i = 0; i < particleCount; i++) {
         setTimeout(() => {
             confettiParticles.push(new ConfettiParticle());
+            pendingParticles--;
         }, i * 20);
     }
     
+    // Start animation if not already running
     if (!animationId) {
         animateConfetti();
     }
@@ -337,17 +334,17 @@ function launchConfetti() {
 function animateConfetti() {
     ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
     
-    confettiParticles.forEach((particle, index) => {
-        particle.update();
-        particle.draw();
-        
-        // Remove particles that have fallen off screen
-        if (particle.y > confettiCanvas.height + 20) {
-            confettiParticles.splice(index, 1);
-        }
-    });
+    // Update and draw all particles
+    for (let i = 0; i < confettiParticles.length; i++) {
+        confettiParticles[i].update();
+        confettiParticles[i].draw();
+    }
     
-    if (confettiParticles.length > 0) {
+    // Remove particles that have fallen off screen
+    confettiParticles = confettiParticles.filter(particle => particle.y <= confettiCanvas.height + 20);
+    
+    // Keep animating if there are particles OR more are pending
+    if (confettiParticles.length > 0 || pendingParticles > 0) {
         animationId = requestAnimationFrame(animateConfetti);
     } else {
         animationId = null;
