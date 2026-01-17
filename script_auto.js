@@ -134,10 +134,12 @@ function startAutoDraw() {
     if (prizesList.length === 0) return;
     
     // Perform first draw immediately
-    draw();
-    
-    // Set up interval for subsequent draws
-    scheduleNextDraw();
+    draw().then(() => {
+        // Set up interval for subsequent draws after winner is shown
+        setTimeout(() => {
+            scheduleNextDraw();
+        }, 3000); // Wait 3 seconds to show winner before starting countdown
+    });
 }
 
 function scheduleNextDraw() {
@@ -165,8 +167,12 @@ function scheduleNextDraw() {
     // Schedule next draw
     autoDrawInterval = setTimeout(() => {
         if (!isPaused && prizesList.length > 0) {
-            draw();
-            scheduleNextDraw();
+            draw().then(() => {
+                // Wait 3 seconds to show winner before starting next countdown
+                setTimeout(() => {
+                    scheduleNextDraw();
+                }, 3000);
+            });
         }
     }, drawIntervalTime);
 }
@@ -210,16 +216,19 @@ function skipToNext() {
     clearInterval(countdownInterval);
     clearTimeout(autoDrawInterval);
     
-    draw();
-    
-    if (prizesList.length > 0 && !isPaused) {
-        scheduleNextDraw();
-    }
+    draw().then(() => {
+        // Wait 3 seconds to show winner before starting next countdown
+        if (prizesList.length > 0 && !isPaused) {
+            setTimeout(() => {
+                scheduleNextDraw();
+            }, 3000);
+        }
+    });
 }
 
 // ===== Draw Function =====
 async function draw() {
-    if (isDrawing || staffList.length === 0 || prizesList.length === 0) return;
+    if (isDrawing || staffList.length === 0 || prizesList.length === 0) return Promise.resolve();
     
     isDrawing = true;
     pauseBtn.disabled = true;
