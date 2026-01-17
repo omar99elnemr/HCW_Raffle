@@ -1,0 +1,367 @@
+// ===== Global State =====
+let staffList = [];
+let prizesList = [];
+let winners = [];
+let isDrawing = false;
+
+// ===== DOM Elements =====
+const staffFileInput = document.getElementById('staff-file');
+const prizesFileInput = document.getElementById('prizes-file');
+const staffFileName = document.getElementById('staff-file-name');
+const prizesFileName = document.getElementById('prizes-file-name');
+const staffCount = document.getElementById('staff-count');
+const prizesCount = document.getElementById('prizes-count');
+const startBtn = document.getElementById('start-btn');
+const uploadSection = document.getElementById('upload-section');
+const raffleSection = document.getElementById('raffle-section');
+const winnersSection = document.getElementById('winners-section');
+const remainingStaff = document.getElementById('remaining-staff');
+const remainingPrizes = document.getElementById('remaining-prizes');
+const winnerCountEl = document.getElementById('winner-count');
+const winnerCard = document.getElementById('winner-card');
+const slotMachine = document.getElementById('slot-machine');
+const slotNames = document.getElementById('slot-names');
+const winnerPhoto = document.getElementById('winner-photo');
+const winnerName = document.getElementById('winner-name');
+const winnerPosition = document.getElementById('winner-position');
+const winnerDepartment = document.getElementById('winner-department');
+const prizeName = document.getElementById('prize-name');
+const drawBtn = document.getElementById('draw-btn');
+const winnersGrid = document.getElementById('winners-grid');
+const exportBtn = document.getElementById('export-btn');
+const completionMessage = document.getElementById('completion-message');
+const confettiCanvas = document.getElementById('confetti-canvas');
+const ctx = confettiCanvas.getContext('2d');
+
+// ===== File Upload Handlers =====
+staffFileInput.addEventListener('change', (e) => handleFileUpload(e, 'staff'));
+prizesFileInput.addEventListener('change', (e) => handleFileUpload(e, 'prizes'));
+
+function handleFileUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+            if (type === 'staff') {
+                parseStaffData(jsonData);
+                staffFileName.textContent = file.name;
+                staffCount.textContent = `✓ ${staffList.length} staff members loaded`;
+                document.getElementById('staff-upload').classList.add('loaded');
+            } else {
+                parsePrizesData(jsonData);
+                prizesFileName.textContent = file.name;
+                prizesCount.textContent = `✓ ${prizesList.length} prizes loaded`;
+                document.getElementById('prizes-upload').classList.add('loaded');
+            }
+
+            checkReadyToStart();
+        } catch (error) {
+            alert('Error reading file. Please make sure it\'s a valid Excel file.');
+            console.error(error);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseStaffData(data) {
+    // Skip header row if it exists
+    const startRow = isHeaderRow(data[0]) ? 1 : 0;
+    staffList = [];
+
+    for (let i = startRow; i < data.length; i++) {
+        const row = data[i];
+        if (row && row.length >= 2 && row[1]) {  // At least id and name
+            staffList.push({
+                id: row[0] || '',
+                name: row[1] || '',
+                department: row[2] || '',
+                position: row[3] || '',
+                photo: row[4] || 'default.jpg'
+            });
+        }
+    }
+}
+
+function parsePrizesData(data) {
+    prizesList = [];
+    const startRow = (data[0] && typeof data[0][0] === 'string' && 
+                      data[0][0].toLowerCase().includes('prize')) ? 1 : 0;
+
+    for (let i = startRow; i < data.length; i++) {
+        const row = data[i];
+        if (row && row[0]) {
+            prizesList.push(row[0].toString().trim());
+        }
+    }
+}
+
+function isHeaderRow(row) {
+    if (!row || row.length === 0) return false;
+    const firstCell = (row[0] || '').toString().toLowerCase();
+    return firstCell.includes('id') || firstCell.includes('name') || 
+           firstCell.includes('staff') || firstCell === '#';
+}
+
+function checkReadyToStart() {
+    startBtn.disabled = !(staffList.length > 0 && prizesList.length > 0);
+}
+
+// ===== Start Raffle =====
+function startRaffle() {
+    uploadSection.classList.add('hidden');
+    raffleSection.classList.remove('hidden');
+    updateStats();
+}
+
+function updateStats() {
+    remainingStaff.textContent = staffList.length;
+    remainingPrizes.textContent = prizesList.length;
+    winnerCountEl.textContent = winners.length;
+}
+
+// ===== Draw Function =====
+async function draw() {
+    if (isDrawing || staffList.length === 0 || prizesList.length === 0) return;
+    
+    isDrawing = true;
+    drawBtn.disabled = true;
+    winnerCard.classList.add('hidden');
+    slotMachine.classList.remove('hidden');
+
+    // Slot machine animation
+    const duration = 3000;
+    const interval = 50;
+    const iterations = duration / interval;
+    
+    for (let i = 0; i < iterations; i++) {
+        const randomIndex = Math.floor(Math.random() * staffList.length);
+        slotNames.textContent = staffList[randomIndex].name;
+        await sleep(interval);
+        
+        // Slow down towards the end
+        if (i > iterations * 0.7) {
+            await sleep(interval * (1 + (i - iterations * 0.7) / 10));
+        }
+    }
+
+    // Select winner
+    const winnerIndex = Math.floor(Math.random() * staffList.length);
+    const prizeIndex = Math.floor(Math.random() * prizesList.length);
+    
+    const winner = staffList[winnerIndex];
+    const prize = prizesList[prizeIndex];
+
+    // Remove from lists
+    staffList.splice(winnerIndex, 1);
+    prizesList.splice(prizeIndex, 1);
+
+    // Add to winners
+    winners.push({ ...winner, prize });
+
+    // Show winner
+    slotMachine.classList.add('hidden');
+    displayWinner(winner, prize);
+    
+    // Update stats
+    updateStats();
+    
+    // Add to winners grid
+    addToWinnersGrid(winner, prize, winners.length);
+    
+    // Show export button
+    exportBtn.classList.remove('hidden');
+    
+    // Trigger confetti
+    launchConfetti();
+    
+    // Check if all prizes are awarded
+    if (prizesList.length === 0) {
+        setTimeout(() => {
+            drawBtn.classList.add('hidden');
+            completionMessage.classList.remove('hidden');
+            launchConfetti();
+            setTimeout(launchConfetti, 500);
+            setTimeout(launchConfetti, 1000);
+        }, 2000);
+    }
+    
+    isDrawing = false;
+    drawBtn.disabled = false;
+}
+
+function displayWinner(winner, prize) {
+    // Set photo path - photos are in a subfolder
+    const photoPath = `photos/${winner.photo}`;
+    winnerPhoto.src = photoPath;
+    winnerPhoto.onerror = () => {
+        winnerPhoto.src = 'photos/default.svg';
+    };
+    
+    winnerName.textContent = winner.name;
+    winnerPosition.textContent = winner.position;
+    winnerDepartment.textContent = winner.department;
+    prizeName.textContent = prize;
+    
+    winnerCard.classList.remove('hidden');
+}
+
+function addToWinnersGrid(winner, prize, number) {
+    const item = document.createElement('div');
+    item.className = 'winner-item';
+    item.style.animationDelay = '0.1s';
+    
+    const photoPath = `photos/${winner.photo}`;
+    
+    item.innerHTML = `
+        <div class="winner-item-number">${number}</div>
+        <img src="${photoPath}" alt="${winner.name}" class="winner-item-photo" 
+             onerror="this.src='photos/default.svg'">
+        <div class="winner-item-info">
+            <div class="winner-item-name">${winner.name}</div>
+            <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
+        </div>
+        <div class="winner-item-prize">🎁 ${prize}</div>
+    `;
+    
+    winnersGrid.insertBefore(item, winnersGrid.firstChild);
+}
+
+// ===== Export Winners =====
+function exportWinners() {
+    const data = winners.map((w, i) => ({
+        '#': i + 1,
+        'ID': w.id,
+        'Name': w.name,
+        'Department': w.department,
+        'Position': w.position,
+        'Prize': w.prize
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Winners');
+    
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 5 },   // #
+        { wch: 10 },  // ID
+        { wch: 25 },  // Name
+        { wch: 20 },  // Department
+        { wch: 25 },  // Position
+        { wch: 30 }   // Prize
+    ];
+    
+    XLSX.writeFile(wb, `Raffle_Winners_${new Date().toISOString().split('T')[0]}.xlsx`);
+}
+
+// ===== Utility Functions =====
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ===== Confetti Animation =====
+let confettiParticles = [];
+let animationId = null;
+
+function resizeCanvas() {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+class ConfettiParticle {
+    constructor() {
+        this.x = Math.random() * confettiCanvas.width;
+        this.y = -20;
+        this.size = Math.random() * 10 + 5;
+        this.speedY = Math.random() * 3 + 2;
+        this.speedX = Math.random() * 4 - 2;
+        this.rotation = Math.random() * 360;
+        this.rotationSpeed = Math.random() * 10 - 5;
+        this.color = this.getRandomColor();
+        this.shape = Math.random() > 0.5 ? 'rect' : 'circle';
+    }
+
+    getRandomColor() {
+        const colors = ['#D4AF37', '#6c5ce7', '#fd79a8', '#00b894', '#e17055', '#0984e3', '#ffeaa7'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    update() {
+        this.y += this.speedY;
+        this.x += this.speedX;
+        this.rotation += this.rotationSpeed;
+        this.speedY += 0.05; // Gravity
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation * Math.PI / 180);
+        ctx.fillStyle = this.color;
+        
+        if (this.shape === 'rect') {
+            ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size / 2);
+        } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+}
+
+function launchConfetti() {
+    // Add new particles
+    for (let i = 0; i < 100; i++) {
+        setTimeout(() => {
+            confettiParticles.push(new ConfettiParticle());
+        }, i * 20);
+    }
+    
+    if (!animationId) {
+        animateConfetti();
+    }
+}
+
+function animateConfetti() {
+    ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+    
+    confettiParticles.forEach((particle, index) => {
+        particle.update();
+        particle.draw();
+        
+        // Remove particles that have fallen off screen
+        if (particle.y > confettiCanvas.height + 20) {
+            confettiParticles.splice(index, 1);
+        }
+    });
+    
+    if (confettiParticles.length > 0) {
+        animationId = requestAnimationFrame(animateConfetti);
+    } else {
+        animationId = null;
+    }
+}
+
+// ===== Keyboard Shortcut =====
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' && !raffleSection.classList.contains('hidden')) {
+        e.preventDefault();
+        draw();
+    }
+});
+
+// ===== Initialize =====
+console.log('🎰 Hyatt Staff Party Raffle App Loaded!');
+console.log('📋 Upload staff list and prizes to begin.');

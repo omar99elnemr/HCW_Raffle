@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyatt Annual Staff Party Raffle 2026</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Confetti Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+    
+    <!-- Header with Hotel Logos -->
+    <header class="header">
+        <div class="hotel-logo">
+            <img src="regency.jpg" alt="Hyatt Regency" class="logo-img" onerror="this.src='regency_placeholder.svg'">
+            <h2>Hyatt Regency</h2>
+        </div>
+        <div class="event-title">
+            <h1>🎉 Annual Staff Party 2026 🎉</h1>
+            <p class="subtitle">Lucky Draw Raffle</p>
+        </div>
+        <div class="hotel-logo">
+            <img src="centric.jpg" alt="Hyatt Centric" class="logo-img" onerror="this.src='centric_placeholder.svg'">
+            <h2>Hyatt Centric</h2>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Upload Section -->
+        <section class="upload-section" id="upload-section">
+            <div class="upload-container">
+                <div class="upload-box" id="staff-upload">
+                    <div class="upload-icon">👥</div>
+                    <h3>Staff List</h3>
+                    <p>Upload Excel file with staff data</p>
+                    <input type="file" id="staff-file" accept=".xlsx,.xls,.csv" hidden>
+                    <button class="upload-btn" onclick="document.getElementById('staff-file').click()">
+                        Choose File
+                    </button>
+                    <p class="file-name" id="staff-file-name">No file selected</p>
+                    <p class="count" id="staff-count"></p>
+                </div>
+                
+                <div class="upload-box" id="prizes-upload">
+                    <div class="upload-icon">🎁</div>
+                    <h3>Prizes List</h3>
+                    <p>Upload Excel file with prizes</p>
+                    <input type="file" id="prizes-file" accept=".xlsx,.xls,.csv" hidden>
+                    <button class="upload-btn" onclick="document.getElementById('prizes-file').click()">
+                        Choose File
+                    </button>
+                    <p class="file-name" id="prizes-file-name">No file selected</p>
+                    <p class="count" id="prizes-count"></p>
+                </div>
+            </div>
+            
+            <button class="start-btn" id="start-btn" disabled onclick="startRaffle()">
+                🚀 Start Raffle
+            </button>
+        </section>
+
+        <!-- Raffle Section -->
+        <section class="raffle-section hidden" id="raffle-section">
+            <div class="stats-bar">
+                <div class="stat">
+                    <span class="stat-label">Staff Remaining</span>
+                    <span class="stat-value" id="remaining-staff">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Prizes Remaining</span>
+                    <span class="stat-value" id="remaining-prizes">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Winners</span>
+                    <span class="stat-value" id="winner-count">0</span>
+                </div>
+            </div>
+
+            <!-- Winner Display -->
+            <div class="winner-display" id="winner-display">
+                <div class="winner-card hidden" id="winner-card">
+                    <div class="winner-photo-container">
+                        <img src="" alt="Winner" id="winner-photo" class="winner-photo">
+                        <div class="winner-glow"></div>
+                    </div>
+                    <div class="winner-info">
+                        <h2 class="winner-name" id="winner-name"></h2>
+                        <p class="winner-position" id="winner-position"></p>
+                        <p class="winner-department" id="winner-department"></p>
+                    </div>
+                    <div class="prize-reveal">
+                        <div class="prize-label">🎁 Wins 🎁</div>
+                        <h3 class="prize-name" id="prize-name"></h3>
+                    </div>
+                </div>
+                
+                <div class="slot-machine hidden" id="slot-machine">
+                    <div class="slot-text">Drawing...</div>
+                    <div class="slot-names" id="slot-names"></div>
+                </div>
+            </div>
+
+            <!-- Draw Button -->
+            <button class="draw-btn" id="draw-btn" onclick="draw()">
+                <span class="draw-text">🎰 Draw Winner</span>
+            </button>
+
+            <!-- Completion Message -->
+            <div class="completion-message hidden" id="completion-message">
+                <h2>🎊 All Prizes Awarded! 🎊</h2>
+                <p>Congratulations to all our winners!</p>
+            </div>
+        </section>
+
+        <!-- Winners List Section -->
+        <section class="winners-section" id="winners-section">
+            <h2 class="section-title">🏆 Winners List 🏆</h2>
+            <div class="winners-grid" id="winners-grid"></div>
+            <button class="export-btn hidden" id="export-btn" onclick="exportWinners()">
+                📥 Export Winners List
+            </button>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2026 Hyatt Hotels - Annual Staff Celebration</p>
+    </footer>
+
+    <!-- SheetJS Library for Excel parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

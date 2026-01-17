@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect fill="#ffffff" width="400" height="400" rx="20"/>
+  <rect x="50" y="100" width="300" height="200" fill="#1a1a2e" rx="10"/>
+  <text x="200" y="180" font-family="Georgia, serif" font-size="32" fill="#D4AF37" text-anchor="middle" font-weight="bold">HYATT</text>
+  <text x="200" y="220" font-family="Georgia, serif" font-size="20" fill="#ffffff" text-anchor="middle">REGENCY</text>
+  <text x="200" y="260" font-family="Arial, sans-serif" font-size="12" fill="#888888" text-anchor="middle">Replace with actual logo</text>
+</svg>
