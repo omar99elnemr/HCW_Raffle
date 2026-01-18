@@ -8,6 +8,112 @@ let autoDrawInterval = null;
 let countdownInterval = null;
 let drawIntervalTime = 8000;
 let countdownTime = 0;
+let raffleStarted = false;
+
+// ===== Persistence Keys =====
+const STORAGE_KEY = 'hcw_raffle_state';
+
+// ===== Save State to LocalStorage =====
+function saveState() {
+    const state = {
+        staffList,
+        prizesList,
+        winners,
+        isPaused,
+        drawIntervalTime,
+        raffleStarted,
+        timestamp: Date.now()
+    };
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save state to localStorage:', e);
+    }
+}
+
+// ===== Load State from LocalStorage =====
+function loadState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.warn('Could not load state from localStorage:', e);
+    }
+    return null;
+}
+
+// ===== Clear Saved State =====
+function clearState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn('Could not clear state from localStorage:', e);
+    }
+}
+
+// ===== Restore Raffle from Saved State =====
+function restoreRaffle(state) {
+    staffList = state.staffList || [];
+    prizesList = state.prizesList || [];
+    winners = state.winners || [];
+    drawIntervalTime = state.drawIntervalTime || 8000;
+    isPaused = true; // Always restore paused so user can review
+    raffleStarted = true;
+    
+    // Hide upload, show raffle section
+    uploadSection.classList.add('hidden');
+    raffleSection.classList.remove('hidden');
+    
+    // Update stats
+    updateStats();
+    
+    // Restore winners grid
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState && winners.length > 0) {
+        emptyState.style.display = 'none';
+    }
+    
+    // Add all winners to grid (in reverse order so latest is on top)
+    winners.forEach((winner, index) => {
+        const item = document.createElement('div');
+        item.className = 'winner-item';
+        const photoPath = `photos/${winner.photo}`;
+        item.innerHTML = `
+            <div class="winner-item-number">${index + 1}</div>
+            <img src="${photoPath}" alt="${winner.name}" class="winner-item-photo" 
+                 onerror="this.src='photos/default.svg'">
+            <div class="winner-item-info">
+                <div class="winner-item-name">${winner.name}</div>
+                <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
+            </div>
+            <div class="winner-item-prize">🎁 ${winner.prize}</div>
+        `;
+        winnersGrid.appendChild(item);
+    });
+    
+    // Show export button if there are winners
+    if (winners.length > 0) {
+        exportBtn.classList.remove('hidden');
+    }
+    
+    // Hide waiting message
+    waitingMessage.classList.add('hidden');
+    
+    // Set pause state
+    pauseText.textContent = '▶️ Resume';
+    pauseBtn.classList.add('paused');
+    autoStatus.classList.add('paused');
+    autoStatus.querySelector('.status-text').textContent = 'Paused (Restored)';
+    
+    // Check if raffle is complete
+    if (prizesList.length === 0) {
+        autoStatus.classList.add('hidden');
+        document.querySelector('.control-buttons').classList.add('hidden');
+        completionMessage.classList.remove('hidden');
+    }
+}
 
 // ===== DOM Elements =====
 const staffFileInput = document.getElementById('staff-file');
@@ -47,6 +153,23 @@ const waitingMessage = document.getElementById('waiting-message');
 // ===== File Upload Handlers =====
 staffFileInput.addEventListener('change', (e) => handleFileUpload(e, 'staff'));
 prizesFileInput.addEventListener('change', (e) => handleFileUpload(e, 'prizes'));
+
+// ===== Check for Saved State on Page Load =====
+document.addEventListener('DOMContentLoaded', () => {
+    const savedState = loadState();
+    if (savedState && savedState.raffleStarted && (savedState.prizesList?.length > 0 || savedState.winners?.length > 0)) {
+        // Show confirmation dialog
+        const timeSaved = new Date(savedState.timestamp).toLocaleString();
+        const winnersCount = savedState.winners?.length || 0;
+        const prizesLeft = savedState.prizesList?.length || 0;
+        
+        if (confirm(`Found saved raffle session from ${timeSaved}.\n\nWinners drawn: ${winnersCount}\nPrizes remaining: ${prizesLeft}\n\nWould you like to resume?`)) {
+            restoreRaffle(savedState);
+        } else {
+            clearState();
+        }
+    }
+});
 
 function handleFileUpload(event, type) {
     const file = event.target.files[0];
@@ -119,10 +242,14 @@ function checkReadyToStart() {
 function startRaffle() {
     // Get selected interval
     drawIntervalTime = parseInt(document.getElementById('draw-interval').value);
+    raffleStarted = true;
     
     uploadSection.classList.add('hidden');
     raffleSection.classList.remove('hidden');
     updateStats();
+    
+    // Save initial state
+    saveState();
     
     // Start auto draw after a short delay
     setTimeout(() => {
@@ -200,12 +327,22 @@ function togglePause() {
         autoStatus.querySelector('.status-text').textContent = 'Paused';
         clearInterval(countdownInterval);
         clearTimeout(autoDrawInterval);
+        // Save state when paused
+        saveState();
     } else {
         pauseText.textContent = '⏸️ Pause';
         pauseBtn.classList.remove('paused');
         autoStatus.classList.remove('paused');
         autoStatus.querySelector('.status-text').textContent = 'Auto Draw Active';
         scheduleNextDraw();
+    }
+}
+
+// ===== Reset Raffle (Start Fresh) =====
+function resetRaffle() {
+    if (confirm('Are you sure you want to reset and start a new raffle? All progress will be lost.')) {
+        clearState();
+        location.reload();
     }
 }
 
@@ -269,6 +406,9 @@ async function draw() {
 
     // Add to winners
     winners.push({ ...winner, prize });
+    
+    // Save state after each winner
+    saveState();
 
     // Show winner
     slotMachine.classList.add('hidden');
@@ -290,6 +430,9 @@ async function draw() {
     if (prizesList.length === 0) {
         clearInterval(countdownInterval);
         clearTimeout(autoDrawInterval);
+        
+        // Clear saved state when raffle is complete
+        clearState();
         
         setTimeout(() => {
             autoStatus.classList.add('hidden');
@@ -323,8 +466,20 @@ function displayWinner(winner, prize) {
 }
 
 function addToWinnersGrid(winner, prize, number) {
+    // Hide empty state on first winner
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+    
+    // Remove latest class from previous items
+    const previousLatest = winnersGrid.querySelector('.winner-item.latest');
+    if (previousLatest) {
+        previousLatest.classList.remove('latest');
+    }
+    
     const item = document.createElement('div');
-    item.className = 'winner-item';
+    item.className = 'winner-item latest';
     item.style.animationDelay = '0.1s';
     
     const photoPath = `photos/${winner.photo}`;
@@ -341,6 +496,9 @@ function addToWinnersGrid(winner, prize, number) {
     `;
     
     winnersGrid.insertBefore(item, winnersGrid.firstChild);
+    
+    // Auto-scroll to show latest winner (at top)
+    winnersGrid.scrollTop = 0;
 }
 
 // ===== Export Winners =====

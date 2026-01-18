@@ -73,92 +73,100 @@
             </button>
         </section>
 
-        <!-- Raffle Section -->
+        <!-- Raffle Section - Split Screen Layout -->
         <section class="raffle-section hidden" id="raffle-section">
-            <div class="stats-bar">
-                <div class="stat">
-                    <span class="stat-label">Staff Remaining</span>
-                    <span class="stat-value" id="remaining-staff">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Prizes Remaining</span>
-                    <span class="stat-value" id="remaining-prizes">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Winners</span>
-                    <span class="stat-value" id="winner-count">0</span>
-                </div>
-            </div>
-
-            <!-- Auto Draw Status -->
-            <div class="auto-status" id="auto-status">
-                <div class="status-text">Auto Draw Active</div>
-                <div class="next-draw">Next draw in: <span id="countdown">--</span>s</div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
-            </div>
-
-            <!-- Winner Display -->
-            <div class="winner-display" id="winner-display">
-                <div class="winner-card hidden" id="winner-card">
-                    <div class="winner-photo-container">
-                        <img src="" alt="Winner" id="winner-photo" class="winner-photo">
-                        <div class="winner-glow"></div>
+            <div class="split-container">
+                <!-- Left Panel - Drawing Area -->
+                <div class="left-panel">
+                    <div class="stats-bar">
+                        <div class="stat">
+                            <span class="stat-label">Staff</span>
+                            <span class="stat-value" id="remaining-staff">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Prizes</span>
+                            <span class="stat-value" id="remaining-prizes">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Winners</span>
+                            <span class="stat-value" id="winner-count">0</span>
+                        </div>
                     </div>
-                    <div class="winner-info">
-                        <h2 class="winner-name" id="winner-name"></h2>
-                        <p class="winner-position" id="winner-position"></p>
-                        <p class="winner-department" id="winner-department"></p>
+
+                    <!-- Auto Draw Status -->
+                    <div class="auto-status" id="auto-status">
+                        <div class="status-text">Auto Draw Active</div>
+                        <div class="next-draw">Next draw in: <span id="countdown">--</span>s</div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
                     </div>
-                    <div class="prize-reveal">
-                        <div class="prize-label">🎁 Wins 🎁</div>
-                        <h3 class="prize-name" id="prize-name"></h3>
+
+                    <!-- Winner Display -->
+                    <div class="winner-display" id="winner-display">
+                        <div class="winner-card hidden" id="winner-card">
+                            <div class="winner-photo-container">
+                                <img src="" alt="Winner" id="winner-photo" class="winner-photo">
+                                <div class="winner-glow"></div>
+                            </div>
+                            <div class="winner-info">
+                                <h2 class="winner-name" id="winner-name"></h2>
+                                <p class="winner-position" id="winner-position"></p>
+                                <p class="winner-department" id="winner-department"></p>
+                            </div>
+                            <div class="prize-reveal">
+                                <div class="prize-label">🎁 Wins 🎁</div>
+                                <h3 class="prize-name" id="prize-name"></h3>
+                            </div>
+                        </div>
+                        
+                        <div class="slot-machine hidden" id="slot-machine">
+                            <div class="slot-text">Drawing...</div>
+                            <div class="slot-names" id="slot-names"></div>
+                        </div>
+
+                        <div class="waiting-message" id="waiting-message">
+                            <div class="waiting-icon">🎰</div>
+                            <p>Waiting for first draw...</p>
+                        </div>
+                    </div>
+
+                    <!-- Control Buttons -->
+                    <div class="control-buttons">
+                        <button class="control-btn pause-btn" id="pause-btn" onclick="togglePause()">
+                            <span id="pause-text">⏸️ Pause</span>
+                        </button>
+                        <button class="control-btn skip-btn" id="skip-btn" onclick="skipToNext()">
+                            ⏭️ Draw Now
+                        </button>
+                        <button class="control-btn reset-btn" id="reset-btn" onclick="resetRaffle()">
+                            🔄 Reset
+                        </button>
+                    </div>
+
+                    <!-- Completion Message -->
+                    <div class="completion-message hidden" id="completion-message">
+                        <h2>🎊 All Done! 🎊</h2>
+                        <p>Congratulations to all winners!</p>
                     </div>
                 </div>
-                
-                <div class="slot-machine hidden" id="slot-machine">
-                    <div class="slot-text">Drawing...</div>
-                    <div class="slot-names" id="slot-names"></div>
+
+                <!-- Right Panel - Winners List -->
+                <div class="right-panel">
+                    <h2 class="section-title">🏆 Winners List 🏆</h2>
+                    <div class="winners-grid" id="winners-grid">
+                        <div class="empty-state" id="empty-state">
+                            <div class="empty-icon">🎯</div>
+                            <p>Winners will appear here</p>
+                        </div>
+                    </div>
+                    <button class="export-btn hidden" id="export-btn" onclick="exportWinners()">
+                        📥 Export Winners
+                    </button>
                 </div>
-
-                <div class="waiting-message" id="waiting-message">
-                    <div class="waiting-icon">🎰</div>
-                    <p>Waiting for first draw...</p>
-                </div>
             </div>
-
-            <!-- Control Buttons -->
-            <div class="control-buttons">
-                <button class="control-btn pause-btn" id="pause-btn" onclick="togglePause()">
-                    <span id="pause-text">⏸️ Pause</span>
-                </button>
-                <button class="control-btn skip-btn" id="skip-btn" onclick="skipToNext()">
-                    ⏭️ Draw Now
-                </button>
-            </div>
-
-            <!-- Completion Message -->
-            <div class="completion-message hidden" id="completion-message">
-                <h2>🎊 All Prizes Awarded! 🎊</h2>
-                <p>Congratulations to all our winners!</p>
-            </div>
-        </section>
-
-        <!-- Winners List Section -->
-        <section class="winners-section" id="winners-section">
-            <h2 class="section-title">🏆 Winners List 🏆</h2>
-            <div class="winners-grid" id="winners-grid"></div>
-            <button class="export-btn hidden" id="export-btn" onclick="exportWinners()">
-                📥 Export Winners List
-            </button>
         </section>
     </main>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <p>© 2026 Hyatt Hotels - Annual Staff Celebration</p>
-    </footer>
 
     <!-- SheetJS Library for Excel parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
