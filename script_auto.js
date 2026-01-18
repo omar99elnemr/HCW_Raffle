@@ -441,6 +441,11 @@ async function draw() {
             launchConfetti();
             setTimeout(launchConfetti, 500);
             setTimeout(launchConfetti, 1000);
+            
+            // Auto-export winners after completion
+            setTimeout(() => {
+                exportWinners();
+            }, 2000);
         }, 2000);
     }
     
