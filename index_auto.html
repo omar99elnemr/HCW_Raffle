@@ -139,6 +139,9 @@
                         <button class="control-btn skip-btn" id="skip-btn" onclick="skipToNext()">
                             ⏭️ Draw Now
                         </button>
+                        <button class="control-btn sound-btn" id="sound-toggle-btn" onclick="toggleSound()">
+                            🔊 Sound On
+                        </button>
                         <button class="control-btn reset-btn" id="reset-btn" onclick="resetRaffle()">
                             🔄 Reset
                         </button>
@@ -167,6 +170,12 @@
             </div>
         </section>
     </main>
+
+    <!-- Audio elements for prize sounds -->
+    <audio id="sound-5000" src="sounds/prize_5000.mp3" preload="auto"></audio>
+    <audio id="sound-10000" src="sounds/prize_10000.mp3" preload="auto"></audio>
+    <audio id="sound-20000" src="sounds/prize_20000.mp3" preload="auto"></audio>
+    <audio id="sound-default" src="sounds/prize_default.mp3" preload="auto"></audio>
 
     <!-- SheetJS Library for Excel parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

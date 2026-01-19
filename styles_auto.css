@@ -616,6 +616,20 @@ body {
     box-shadow: 0 5px 20px rgba(45, 52, 54, 0.4);
 }
 
+.sound-btn {
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+    color: white;
+}
+
+.sound-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 20px rgba(108, 92, 231, 0.4);
+}
+
+.sound-btn.muted {
+    background: linear-gradient(135deg, #b2bec3, #636e72);
+}
+
 .control-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;

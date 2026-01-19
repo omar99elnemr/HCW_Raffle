@@ -10,6 +10,75 @@ let drawIntervalTime = 8000;
 let countdownTime = 0;
 let raffleStarted = false;
 
+// ===== Audio Configuration =====
+// Prize amounts that trigger special sounds
+const PRIZE_SOUNDS = {
+    5000: 'sound-5000',
+    10000: 'sound-10000',
+    20000: 'sound-20000'
+};
+
+let soundEnabled = true;
+
+// ===== Play Prize Sound =====
+function playPrizeSound(prizeValue) {
+    if (!soundEnabled) return;
+    
+    // Extract numeric value from prize string (handles formats like "5000", "$5,000", "5000 AED", etc.)
+    const numericValue = parseInt(prizeValue.toString().replace(/[^0-9]/g, ''));
+    
+    let audioElement = null;
+    
+    // Check if this prize amount has a specific sound
+    if (PRIZE_SOUNDS[numericValue]) {
+        audioElement = document.getElementById(PRIZE_SOUNDS[numericValue]);
+    }
+    
+    // Fallback to default sound if available
+    if (!audioElement) {
+        audioElement = document.getElementById('sound-default');
+    }
+    
+    if (audioElement) {
+        // Reset audio to beginning if already playing
+        audioElement.currentTime = 0;
+        
+        // Play the sound
+        audioElement.play().catch(error => {
+            console.warn('Could not play prize sound:', error);
+        });
+    }
+}
+
+// ===== Stop All Prize Sounds =====
+function stopAllSounds() {
+    Object.values(PRIZE_SOUNDS).forEach(soundId => {
+        const audio = document.getElementById(soundId);
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    });
+    const defaultSound = document.getElementById('sound-default');
+    if (defaultSound) {
+        defaultSound.pause();
+        defaultSound.currentTime = 0;
+    }
+}
+
+// ===== Toggle Sound =====
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    if (soundBtn) {
+        soundBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Sound Off';
+        soundBtn.classList.toggle('muted', !soundEnabled);
+    }
+    if (!soundEnabled) {
+        stopAllSounds();
+    }
+}
+
 // ===== Persistence Keys =====
 const STORAGE_KEY = 'hcw_raffle_state';
 
@@ -413,6 +482,9 @@ async function draw() {
     // Show winner
     slotMachine.classList.add('hidden');
     displayWinner(winner, prize);
+    
+    // Play prize sound based on prize value
+    playPrizeSound(prize);
     
     // Update stats
     updateStats();
