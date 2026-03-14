@@ -257,13 +257,72 @@ const pauseBtn = document.getElementById('pause-btn');
 const pauseText = document.getElementById('pause-text');
 const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
+const appDialog = document.getElementById('app-dialog');
+const appDialogOverlay = document.getElementById('app-dialog-overlay');
+const appDialogTitle = document.getElementById('app-dialog-title');
+const appDialogMessage = document.getElementById('app-dialog-message');
+const appDialogCancelBtn = document.getElementById('app-dialog-cancel');
+const appDialogOkBtn = document.getElementById('app-dialog-ok');
+
+let appDialogResolver = null;
+let appDialogMode = 'alert';
+
+function closeAppDialog(result) {
+    if (!appDialog) return;
+    appDialog.classList.add('hidden');
+    if (appDialogResolver) {
+        const resolve = appDialogResolver;
+        appDialogResolver = null;
+        resolve(result);
+    }
+}
+
+function openAppDialog({ title, message, mode }) {
+    if (!appDialog || !appDialogTitle || !appDialogMessage) {
+        return Promise.resolve(mode === 'confirm' ? false : true);
+    }
+
+    appDialogMode = mode;
+    appDialogTitle.textContent = title || 'Notice';
+    appDialogMessage.textContent = message || '';
+    appDialogCancelBtn.classList.toggle('hidden', mode !== 'confirm');
+    appDialogOkBtn.textContent = mode === 'confirm' ? 'Confirm' : 'OK';
+    appDialog.classList.remove('hidden');
+    appDialogOkBtn.focus();
+
+    return new Promise((resolve) => {
+        appDialogResolver = resolve;
+    });
+}
+
+function showStyledAlert(message, title = 'Notice') {
+    return openAppDialog({ title, message, mode: 'alert' });
+}
+
+function showStyledConfirm(message, title = 'Please Confirm') {
+    return openAppDialog({ title, message, mode: 'confirm' });
+}
+
+if (appDialogOverlay) {
+    appDialogOverlay.addEventListener('click', () => {
+        closeAppDialog(appDialogMode === 'confirm' ? false : true);
+    });
+}
+
+if (appDialogCancelBtn) {
+    appDialogCancelBtn.addEventListener('click', () => closeAppDialog(false));
+}
+
+if (appDialogOkBtn) {
+    appDialogOkBtn.addEventListener('click', () => closeAppDialog(true));
+}
 
 // ===== File Upload Handlers =====
 staffFileInput.addEventListener('change', (e) => handleFileUpload(e, 'staff'));
 prizesFileInput.addEventListener('change', (e) => handleFileUpload(e, 'prizes'));
 
 // ===== Check for Saved State on Page Load =====
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const pinInput = document.getElementById('setup-pin');
     if (pinInput && !pinInput.value) {
         pinInput.value = '1111';
@@ -275,8 +334,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const timeSaved = new Date(savedState.timestamp).toLocaleString();
         const winnersCount = savedState.winners?.length || 0;
         const prizesLeft = savedState.prizesList?.length || 0;
-        
-        if (confirm(`Found saved raffle session from ${timeSaved}.\n\nWinners drawn: ${winnersCount}\nPrizes remaining: ${prizesLeft}\n\nWould you like to resume?`)) {
+
+        const shouldResume = await showStyledConfirm(
+            `Found saved raffle session from ${timeSaved}.\n\nWinners drawn: ${winnersCount}\nPrizes remaining: ${prizesLeft}\n\nWould you like to resume?`,
+            'Resume Saved Raffle?'
+        );
+
+        if (shouldResume) {
             restoreRaffle(savedState);
         } else {
             clearState();
@@ -304,7 +368,7 @@ function handleFileUpload(event, type) {
     const allowedExtensions = ['csv', 'xlsx', 'xls'];
     const extension = file.name.split('.').pop()?.toLowerCase() || '';
     if (!allowedExtensions.includes(extension)) {
-        alert('Unsupported file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls).');
+        showStyledAlert('Unsupported file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls).', 'Invalid File Type');
         event.target.value = '';
         return;
     }
@@ -335,7 +399,7 @@ function handleFileUpload(event, type) {
 
             checkReadyToStart();
         } catch (error) {
-            alert('Error reading file. Please make sure it is a valid CSV or Excel file.');
+            showStyledAlert('Error reading file. Please make sure it is a valid CSV or Excel file.', 'File Read Error');
             console.error(error);
         } finally {
             setUploadLoading(type, false);
@@ -343,7 +407,7 @@ function handleFileUpload(event, type) {
     };
     reader.onerror = () => {
         setUploadLoading(type, false);
-        alert('Error reading file. Please try again.');
+        showStyledAlert('Error reading file. Please try again.', 'File Read Error');
     };
     if (extension === 'csv') {
         reader.readAsText(file);
@@ -825,22 +889,39 @@ function saveSettings() {
     closeSettings();
 }
 
-function resetRaffleWithPin() {
+async function resetRaffleWithPin() {
     const pin = document.getElementById('reset-pin-input').value;
     if (pinsMatch(pin, settingsPin)) {
-        if (confirm('Are you sure you want to reset? All progress will be lost.')) {
+        const confirmed = await showStyledConfirm(
+            'Are you sure you want to reset? All progress will be lost.',
+            'Confirm Reset'
+        );
+        if (confirmed) {
             clearState();
             closeSettings();
             location.reload();
         }
     } else {
-        alert('Incorrect PIN. Reset cancelled.');
+        await showStyledAlert('Incorrect PIN. Reset cancelled.', 'Incorrect PIN');
     }
     document.getElementById('reset-pin-input').value = '';
 }
 
 // ===== Keyboard Shortcuts =====
 document.addEventListener('keydown', (e) => {
+    if (appDialog && !appDialog.classList.contains('hidden')) {
+        if (e.code === 'Escape') {
+            e.preventDefault();
+            closeAppDialog(appDialogMode === 'confirm' ? false : true);
+            return;
+        }
+        if (e.code === 'Enter') {
+            e.preventDefault();
+            closeAppDialog(true);
+            return;
+        }
+    }
+
     if (e.code === 'Escape') {
         closeSettings();
         return;

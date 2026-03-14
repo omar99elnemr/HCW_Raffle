@@ -1188,6 +1188,88 @@ body {
     backdrop-filter: blur(4px);
 }
 
+/* ===== App Dialog Modal ===== */
+.app-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.app-dialog-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(4px);
+}
+
+.app-dialog-content {
+    position: relative;
+    z-index: 1;
+    width: min(92%, 460px);
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(212, 175, 55, 0.4);
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 32px rgba(212, 175, 55, 0.12);
+}
+
+.app-dialog-title {
+    margin: 0 0 10px;
+    color: var(--primary-gold);
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+}
+
+.app-dialog-message {
+    margin: 0;
+    color: var(--text-light);
+    line-height: 1.5;
+    white-space: pre-line;
+    font-size: 0.95rem;
+}
+
+.app-dialog-actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.app-dialog-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.app-dialog-btn:hover {
+    transform: translateY(-1px);
+}
+
+.app-dialog-btn-cancel {
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--text-light);
+}
+
+.app-dialog-btn-ok {
+    background: linear-gradient(135deg, var(--primary-gold), #b8941f);
+    color: #1a1a2e;
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.25);
+}
+
 .settings-modal-content {
     position: relative;
     z-index: 1;

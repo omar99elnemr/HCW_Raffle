@@ -217,6 +217,19 @@
         </div>
     </div>
 
+    <!-- Styled App Dialog (replaces browser alert/confirm) -->
+    <div class="app-dialog hidden" id="app-dialog">
+        <div class="app-dialog-overlay" id="app-dialog-overlay"></div>
+        <div class="app-dialog-content" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
+            <h3 id="app-dialog-title" class="app-dialog-title">Notice</h3>
+            <p id="app-dialog-message" class="app-dialog-message"></p>
+            <div class="app-dialog-actions">
+                <button id="app-dialog-cancel" class="app-dialog-btn app-dialog-btn-cancel" type="button">Cancel</button>
+                <button id="app-dialog-ok" class="app-dialog-btn app-dialog-btn-ok" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Audio elements for prize sounds -->
     <audio id="sound-5000" src="sounds/prize_5000.mp3" preload="auto"></audio>
     <audio id="sound-10000" src="sounds/prize_10000.mp3" preload="auto"></audio>
