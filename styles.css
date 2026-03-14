@@ -141,6 +141,51 @@ body {
     margin-bottom: 2px;
 }
 
+.recovery-banner {
+    width: min(1100px, 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(108, 92, 231, 0.45);
+    background: linear-gradient(135deg, rgba(108, 92, 231, 0.22), rgba(22, 33, 62, 0.6));
+}
+
+.recovery-banner-text {
+    color: var(--text-light);
+    font-size: 0.88rem;
+    line-height: 1.4;
+    white-space: pre-line;
+}
+
+.recovery-banner-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.recovery-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.recovery-btn-primary {
+    background: linear-gradient(135deg, var(--success-green), #00a884);
+    color: #fff;
+}
+
+.recovery-btn-secondary {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-light);
+}
+
 .upload-box {
     background: var(--glass-bg);
     backdrop-filter: blur(10px);
@@ -938,6 +983,11 @@ body {
     .settings-inline-row .interval-setting {
         flex: 1 1 calc(50% - 10px);
         max-width: none;
+    }
+
+    .recovery-banner {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 

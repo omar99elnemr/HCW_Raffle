@@ -358,6 +358,10 @@ const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
 const validationSummary = document.getElementById('validation-summary');
 const validationSummaryBody = document.getElementById('validation-summary-body');
+const recoveryBanner = document.getElementById('recovery-banner');
+const recoveryBannerText = document.getElementById('recovery-banner-text');
+const resumeSessionBtn = document.getElementById('resume-session-btn');
+const startFreshBtn = document.getElementById('start-fresh-btn');
 const appDialog = document.getElementById('app-dialog');
 const appDialogOverlay = document.getElementById('app-dialog-overlay');
 const appDialogTitle = document.getElementById('app-dialog-title');
@@ -367,6 +371,7 @@ const appDialogOkBtn = document.getElementById('app-dialog-ok');
 
 let appDialogResolver = null;
 let appDialogMode = 'alert';
+let pendingRecoveredState = null;
 let validationState = {
     staff: { uploaded: false, errors: [], warnings: [], loadedCount: 0 },
     prizes: { uploaded: false, errors: [], warnings: [], loadedCount: 0 }
@@ -439,6 +444,21 @@ function renderValidationSummary() {
     validationSummaryBody.textContent = lines.join('\n');
 }
 
+function hideRecoveryBanner() {
+    if (recoveryBanner) {
+        recoveryBanner.classList.add('hidden');
+    }
+}
+
+function showRecoveryBanner(state) {
+    if (!recoveryBanner || !recoveryBannerText) return;
+    const timeSaved = new Date(state.timestamp).toLocaleString();
+    const winnersCount = state.winners?.length || 0;
+    const prizesLeft = state.prizesList?.length || 0;
+    recoveryBannerText.textContent = `Recovered saved raffle from ${timeSaved}.\nWinners drawn: ${winnersCount} | Prizes remaining: ${prizesLeft}`;
+    recoveryBanner.classList.remove('hidden');
+}
+
 if (appDialogOverlay) {
     appDialogOverlay.addEventListener('click', () => {
         closeAppDialog(appDialogMode === 'confirm' ? false : true);
@@ -506,25 +526,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const savedState = loadState();
     if (savedState && savedState.raffleStarted && (savedState.prizesList?.length > 0 || savedState.winners?.length > 0)) {
-        // Show confirmation dialog
-        const timeSaved = new Date(savedState.timestamp).toLocaleString();
-        const winnersCount = savedState.winners?.length || 0;
-        const prizesLeft = savedState.prizesList?.length || 0;
-
-        const shouldResume = await showStyledConfirm(
-            `Found saved raffle session from ${timeSaved}.\n\nWinners drawn: ${winnersCount}\nPrizes remaining: ${prizesLeft}\n\nWould you like to resume?`,
-            'Resume Saved Raffle?'
-        );
-
-        if (shouldResume) {
-            restoreRaffle(savedState);
-        } else {
-            clearState();
-        }
+        pendingRecoveredState = savedState;
+        showRecoveryBanner(savedState);
     }
 
     renderValidationSummary();
 });
+
+if (resumeSessionBtn) {
+    resumeSessionBtn.addEventListener('click', () => {
+        if (!pendingRecoveredState) return;
+        const stateToRestore = pendingRecoveredState;
+        pendingRecoveredState = null;
+        hideRecoveryBanner();
+        restoreRaffle(stateToRestore);
+    });
+}
+
+if (startFreshBtn) {
+    startFreshBtn.addEventListener('click', () => {
+        pendingRecoveredState = null;
+        clearState();
+        hideRecoveryBanner();
+    });
+}
 
 function setUploadLoading(type, isLoading) {
     const loadingEl = type === 'staff' ? staffLoading : prizesLoading;
