@@ -1064,6 +1064,40 @@ body {
     padding: 8px 12px;
 }
 
+.validation-summary {
+    width: min(1100px, 100%);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+
+.validation-summary.has-errors {
+    border-color: rgba(255, 107, 107, 0.6);
+    background: rgba(255, 107, 107, 0.08);
+}
+
+.validation-summary.valid {
+    border-color: rgba(0, 184, 148, 0.55);
+    background: rgba(0, 184, 148, 0.08);
+}
+
+.validation-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary-gold);
+    margin-bottom: 6px;
+}
+
+.validation-body {
+    color: var(--text-light);
+    font-size: 0.86rem;
+    line-height: 1.45;
+    white-space: pre-line;
+}
+
 /* ===== Settings Gear Button ===== */
 .settings-gear-btn {
     background: rgba(108, 92, 231, 0.15);

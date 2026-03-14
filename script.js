@@ -21,6 +21,20 @@ const PRIZE_PHOTO_DIR = 'prizes/prizes_photos';
 const STAFF_DEFAULT_PHOTO = `${STAFF_PHOTO_DIR}/default.svg`;
 const PRIZE_DEFAULT_PHOTO = `${PRIZE_PHOTO_DIR}/default.svg`;
 
+const STAFF_HEADER_ALIASES = {
+    id: ['id', 'staffid', 'employeeid', 'empid', 'number', 'no'],
+    name: ['name', 'staffname', 'employee', 'employeename'],
+    department: ['department', 'dept'],
+    position: ['position', 'title', 'jobtitle', 'designation'],
+    photo: ['photo', 'image', 'picture', 'filename']
+};
+
+const PRIZE_HEADER_ALIASES = {
+    name: ['prize', 'prizename', 'name', 'item'],
+    photo: ['photo', 'image', 'picture', 'filename'],
+    category: ['category', 'round', 'group']
+};
+
 function normalizePhotoFileName(fileName) {
     if (!fileName) return '';
     return fileName.toString().split(/[\\/]/).pop().trim();
@@ -34,6 +48,38 @@ function getStaffPhotoPath(fileName) {
 function getPrizePhotoPath(fileName) {
     const normalized = normalizePhotoFileName(fileName);
     return normalized ? `${PRIZE_PHOTO_DIR}/${normalized}` : PRIZE_DEFAULT_PHOTO;
+}
+
+function normalizeHeaderName(value) {
+    return (value || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function buildHeaderIndexMap(headerRow, aliases) {
+    const indexMap = {};
+    if (!headerRow || !Array.isArray(headerRow)) return indexMap;
+
+    const normalizedToIndex = {};
+    headerRow.forEach((cell, index) => {
+        const normalized = normalizeHeaderName(cell);
+        if (normalized && normalizedToIndex[normalized] === undefined) {
+            normalizedToIndex[normalized] = index;
+        }
+    });
+
+    Object.entries(aliases).forEach(([key, candidates]) => {
+        const found = candidates.find((candidate) => normalizedToIndex[candidate] !== undefined);
+        if (found !== undefined) {
+            indexMap[key] = normalizedToIndex[found];
+        }
+    });
+
+    return indexMap;
+}
+
+function toCellText(row, index) {
+    if (!row || index === undefined || index === null) return '';
+    const value = row[index];
+    return value === undefined || value === null ? '' : value.toString().trim();
 }
 
 function sanitizeEventYear(value) {
@@ -310,6 +356,8 @@ const pauseBtn = document.getElementById('pause-btn');
 const pauseText = document.getElementById('pause-text');
 const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
+const validationSummary = document.getElementById('validation-summary');
+const validationSummaryBody = document.getElementById('validation-summary-body');
 const appDialog = document.getElementById('app-dialog');
 const appDialogOverlay = document.getElementById('app-dialog-overlay');
 const appDialogTitle = document.getElementById('app-dialog-title');
@@ -319,6 +367,10 @@ const appDialogOkBtn = document.getElementById('app-dialog-ok');
 
 let appDialogResolver = null;
 let appDialogMode = 'alert';
+let validationState = {
+    staff: { uploaded: false, errors: [], warnings: [], loadedCount: 0 },
+    prizes: { uploaded: false, errors: [], warnings: [], loadedCount: 0 }
+};
 
 function closeAppDialog(result) {
     if (!appDialog) return;
@@ -354,6 +406,37 @@ function showStyledAlert(message, title = 'Notice') {
 
 function showStyledConfirm(message, title = 'Please Confirm') {
     return openAppDialog({ title, message, mode: 'confirm' });
+}
+
+function getValidationErrorCount() {
+    return validationState.staff.errors.length + validationState.prizes.errors.length;
+}
+
+function renderValidationSummary() {
+    if (!validationSummary || !validationSummaryBody) return;
+
+    const staff = validationState.staff;
+    const prizes = validationState.prizes;
+
+    const lines = [];
+
+    if (!staff.uploaded || !prizes.uploaded) {
+        lines.push('Upload both staff and prizes files to validate data before starting.');
+    }
+
+    if (staff.uploaded) {
+        lines.push(`Staff: ${staff.loadedCount} valid rows`);
+        staff.errors.forEach((msg) => lines.push(`- ${msg}`));
+    }
+
+    if (prizes.uploaded) {
+        lines.push(`Prizes: ${prizes.loadedCount} valid rows`);
+        prizes.errors.forEach((msg) => lines.push(`- ${msg}`));
+    }
+
+    validationSummary.classList.toggle('has-errors', getValidationErrorCount() > 0);
+    validationSummary.classList.toggle('valid', staff.uploaded && prizes.uploaded && getValidationErrorCount() === 0);
+    validationSummaryBody.textContent = lines.join('\n');
 }
 
 if (appDialogOverlay) {
@@ -439,6 +522,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearState();
         }
     }
+
+    renderValidationSummary();
 });
 
 function setUploadLoading(type, isLoading) {
@@ -451,6 +536,13 @@ function setUploadLoading(type, isLoading) {
     if (isLoading) {
         countEl.textContent = '';
         uploadBox.classList.remove('loaded');
+        if (type === 'staff') {
+            validationState.staff = { uploaded: false, errors: [], warnings: [], loadedCount: 0 };
+        } else {
+            validationState.prizes = { uploaded: false, errors: [], warnings: [], loadedCount: 0 };
+        }
+        renderValidationSummary();
+        checkReadyToStart();
     }
 }
 
@@ -510,40 +602,114 @@ function handleFileUpload(event, type) {
 }
 
 function parseStaffData(data) {
-    // Always skip first row (header)
     staffList = [];
+    validationState.staff = { uploaded: true, errors: [], warnings: [], loadedCount: 0 };
+
+    if (!data || data.length === 0 || !Array.isArray(data[0])) {
+        validationState.staff.errors.push('Staff file is empty or missing a header row.');
+        return;
+    }
+
+    const headerMap = buildHeaderIndexMap(data[0], STAFF_HEADER_ALIASES);
+    if (headerMap.id === undefined || headerMap.name === undefined) {
+        validationState.staff.errors.push('Staff headers must include ID and Name (flexible aliases are supported).');
+        return;
+    }
+
+    const seenIds = new Set();
+    const duplicateIds = new Set();
 
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row && row.length >= 2 && row[1]) {  // At least id and name
-            staffList.push({
-                id: row[0] || '',
-                name: row[1] || '',
-                department: row[2] || '',
-                position: row[3] || '',
-                photo: row[4] || 'default.svg'
-            });
+        if (!row || row.length === 0) continue;
+
+        const id = toCellText(row, headerMap.id);
+        const name = toCellText(row, headerMap.name);
+        const department = toCellText(row, headerMap.department);
+        const position = toCellText(row, headerMap.position);
+        const photo = toCellText(row, headerMap.photo) || 'default.svg';
+
+        if (!id && !name && !department && !position) {
+            continue;
         }
+
+        if (!id || !name) {
+            validationState.staff.errors.push(`Staff row ${i + 1} is missing required ID or Name.`);
+            continue;
+        }
+
+        if (seenIds.has(id)) {
+            duplicateIds.add(id);
+            continue;
+        }
+
+        seenIds.add(id);
+        staffList.push({ id, name, department, position, photo });
     }
+
+    if (duplicateIds.size > 0) {
+        validationState.staff.errors.push(`Duplicate staff IDs found: ${Array.from(duplicateIds).join(', ')}`);
+    }
+
+    if (staffList.length === 0) {
+        validationState.staff.errors.push('No valid staff rows were found.');
+    }
+
+    validationState.staff.loadedCount = staffList.length;
 }
 
 function parsePrizesData(data) {
-    // Always skip first row (header)
     prizesList = [];
-    
+    validationState.prizes = { uploaded: true, errors: [], warnings: [], loadedCount: 0 };
+
+    if (!data || data.length === 0 || !Array.isArray(data[0])) {
+        validationState.prizes.errors.push('Prizes file is empty or missing a header row.');
+        return;
+    }
+
+    const headerMap = buildHeaderIndexMap(data[0], PRIZE_HEADER_ALIASES);
+    if (headerMap.name === undefined) {
+        validationState.prizes.errors.push('Prizes headers must include Prize/Name (flexible aliases are supported).');
+        return;
+    }
+
+    let emptyPrizeRows = 0;
+
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
-        if (row && row[0] !== undefined && row[0] !== null && row[0] !== '') {
-            prizesList.push({
-                name: row[0].toString().trim(),
-                photo: row[1] ? row[1].toString().trim() : ''
-            });
+        if (!row || row.length === 0) continue;
+
+        const name = toCellText(row, headerMap.name);
+        const photo = toCellText(row, headerMap.photo);
+        const category = toCellText(row, headerMap.category);
+
+        if (!name && !photo && !category) {
+            continue;
         }
+
+        if (!name) {
+            emptyPrizeRows++;
+            continue;
+        }
+
+        prizesList.push({ name, photo, category });
     }
+
+    if (emptyPrizeRows > 0) {
+        validationState.prizes.errors.push(`${emptyPrizeRows} prize row(s) are empty or missing prize name.`);
+    }
+
+    if (prizesList.length === 0) {
+        validationState.prizes.errors.push('No valid prize rows were found.');
+    }
+
+    validationState.prizes.loadedCount = prizesList.length;
 }
 
 function checkReadyToStart() {
-    startBtn.disabled = !(staffList.length > 0 && prizesList.length > 0);
+    renderValidationSummary();
+    const hasErrors = getValidationErrorCount() > 0;
+    startBtn.disabled = !(staffList.length > 0 && prizesList.length > 0 && !hasErrors);
 }
 
 // ===== Start Raffle =====
