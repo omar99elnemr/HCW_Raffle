@@ -9,7 +9,6 @@ A beautiful, interactive raffle web application for the Hyatt Regency & Hyatt Ce
 
 - **Excel File Support**: Upload staff list and prizes from Excel (.xlsx, .xls) or CSV files
 - **Configurable Party Year**: Update the event year directly from the UI
-- **Draw Pace Mode**: Choose `Cinematic` or `Fast` draw pacing
 - **Auto Draw Mode**: Continuous automated drawing with configurable countdown between draws
 - **Animated Draw**: Exciting slot-machine style animation when drawing winners
 - **Validation Summary**: Blocks start when data has duplicate IDs, missing required fields, or invalid headers
@@ -20,14 +19,12 @@ A beautiful, interactive raffle web application for the Hyatt Regency & Hyatt Ce
 - **Status Chips**: Live chips for parsing, settings-pause, and recovered sessions
 - **Winners List**: Live-updating split-screen list of all winners with prize photos
 - **Virtualized Winners List**: Keeps long winner histories responsive on large events
-- **Category Rounds**: Optional category-based prize rounds (e.g., Cash, Appliance)
 - **Export Function**: Download winners list as Excel file (auto-exports on completion)
 - **Session Persistence + Recovery Banner**: Saved raffle can be resumed or cleared from a visible banner
-- **Big-Screen Presentation Mode**: One-click projector-friendly display mode
 - **Styled Dialogs**: In-app styled confirmations/alerts instead of browser popups
 - **Settings Modal**: Adjust timing, export filename, and reset (PIN-protected) mid-raffle
 - **Responsive Design**: Works on desktop, tablet, and mobile
-- **Keyboard Support**: SPACE = Pause/Resume, ENTER = Draw Now, `P` = Presentation mode, `?` = Shortcut help, ESC = Close modal
+- **Keyboard Support**: SPACE = Pause/Resume, ENTER = Draw Now, ESC = Close modal
 
 ## 📁 Project Structure
 
@@ -93,10 +90,8 @@ The **Photo** and **Category** columns are optional. When provided, photo filena
 
 5. **Configure Settings** (before starting):
    - Set **Party Year**
-   - Set **Draw Pace Mode** (`Cinematic` or `Fast`)
    - Set **Shuffle Duration** (slot-machine animation length, seconds)
    - Set **Time Between Draws** (countdown between automatic draws, seconds)
-   - Optional: enable **Prize Rounds by Category**
    - Set a **PIN** to protect the mid-raffle reset function
 
 6. **Upload Files**:

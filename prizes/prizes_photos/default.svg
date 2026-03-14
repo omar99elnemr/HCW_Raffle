@@ -1,9 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-  <rect fill="#1a1a2e" width="400" height="400"/>
-  <rect x="120" y="180" width="160" height="130" rx="8" fill="#3a3a5e"/>
-  <rect x="110" y="160" width="180" height="30" rx="6" fill="#4a4a7e"/>
-  <rect x="188" y="160" width="24" height="150" fill="#D4AF37" opacity="0.7"/>
-  <rect x="110" y="175" width="180" height="14" fill="#D4AF37" opacity="0.7"/>
-  <ellipse cx="200" cy="160" rx="28" ry="18" fill="none" stroke="#D4AF37" stroke-width="4" opacity="0.7"/>
-  <text x="200" y="360" font-family="Arial, sans-serif" font-size="18" fill="#888" text-anchor="middle">No Photo</text>
+  <rect width="400" height="400" rx="28" fill="#2f3149"/>
+
+  <!-- Gift body -->
+  <rect x="122" y="168" width="156" height="132" rx="18" fill="#f5c142"/>
+
+  <!-- Gift lid -->
+  <rect x="114" y="144" width="172" height="44" rx="14" fill="#ffd24d"/>
+
+  <!-- Ribbon vertical -->
+  <rect x="188" y="144" width="24" height="156" rx="8" fill="#e63b5c"/>
+
+  <!-- Ribbon horizontal -->
+  <rect x="114" y="164" width="172" height="18" rx="8" fill="#e63b5c"/>
+
+  <!-- Bow left -->
+  <ellipse cx="178" cy="140" rx="22" ry="15" fill="#f14b68"/>
+  <ellipse cx="178" cy="140" rx="12" ry="8" fill="#d62f4f"/>
+
+  <!-- Bow right -->
+  <ellipse cx="222" cy="140" rx="22" ry="15" fill="#f14b68"/>
+  <ellipse cx="222" cy="140" rx="12" ry="8" fill="#d62f4f"/>
+
+  <!-- Center knot -->
+  <circle cx="200" cy="142" r="9" fill="#d62f4f"/>
 </svg>

@@ -10,21 +10,17 @@ let drawIntervalTime = 3000;
 let countdownTime = 0;
 let raffleStarted = false;
 let shuffleDuration = 2000;
-let drawPaceMode = 'cinematic';
-let roundMode = 'off';
-let roundStartCategory = '';
-let currentRoundCategory = '';
-let roundCategories = [];
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
+let showPrizePlaceholderWhenMissing = true;
 const DEFAULT_EVENT_YEAR = 2026;
 let eventYear = DEFAULT_EVENT_YEAR;
+const POST_DRAW_DELAY_MS = 3000;
 
 const STAFF_PHOTO_DIR = 'staff/staff_photos';
 const PRIZE_PHOTO_DIR = 'prizes/prizes_photos';
 const STAFF_DEFAULT_PHOTO = `${STAFF_PHOTO_DIR}/default.svg`;
 const PRIZE_DEFAULT_PHOTO = `${PRIZE_PHOTO_DIR}/default.svg`;
-const PRESENTATION_MODE_KEY = 'hcw_presentation_mode';
 
 const STAFF_HEADER_ALIASES = {
     id: ['id', 'staffid', 'employeeid', 'empid', 'number', 'no'],
@@ -99,8 +95,16 @@ function createWinnerItemElement(winner, number, isLatest) {
     }
 
     const staffPhotoPath = getStaffPhotoPath(winner.photo);
-    const prizePhotoPath = getPrizePhotoPath(winner.prize && winner.prize.photo);
+    const prizePhotoName = normalizePhotoFileName(winner.prize && winner.prize.photo);
+    const prizePhotoPath = getPrizePhotoPath(prizePhotoName);
     const prizeNameText = winner.prize && winner.prize.name ? winner.prize.name : (winner.prize || '');
+    const shouldShowPrizeImage = showPrizePlaceholderWhenMissing || !!prizePhotoName;
+    const prizeImageOnError = showPrizePlaceholderWhenMissing
+        ? `this.src='${PRIZE_DEFAULT_PHOTO}'`
+        : `this.style.display='none'`;
+    const prizeImageHtml = shouldShowPrizeImage
+        ? `<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="${prizeImageOnError}">`
+        : '';
 
     item.innerHTML = `
         <div class="winner-item-number">${number}</div>
@@ -110,7 +114,7 @@ function createWinnerItemElement(winner, number, isLatest) {
             <div class="winner-item-name">${winner.name}</div>
             <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
         </div>
-        <div class="winner-item-prize"> ${prizeNameText}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
+        <div class="winner-item-prize"> ${prizeNameText}${prizeImageHtml}</div>
     `;
 
     return item;
@@ -124,86 +128,15 @@ function sanitizeEventYear(value) {
     return parsed;
 }
 
-function sanitizeDrawPaceMode(value) {
-    return value === 'fast' ? 'fast' : 'cinematic';
-}
-
-function sanitizeRoundMode(value) {
-    return value === 'category' ? 'category' : 'off';
-}
-
-function getAvailableRoundCategories(list) {
-    const categories = [];
-    const seen = new Set();
-    (list || []).forEach((prize) => {
-        const category = (prize && prize.category ? prize.category.toString().trim() : '');
-        if (!category || seen.has(category)) return;
-        seen.add(category);
-        categories.push(category);
-    });
-    return categories;
-}
-
-function popRandomItemByIndices(list, candidateIndices) {
-    if (!Array.isArray(candidateIndices) || candidateIndices.length === 0) return null;
-    const pickPos = Math.floor(Math.random() * candidateIndices.length);
-    const chosenIndex = candidateIndices[pickPos];
-    const lastIndex = list.length - 1;
-    const selected = list[chosenIndex];
-    list[chosenIndex] = list[lastIndex];
-    list.pop();
-    return selected;
-}
-
-function pickPrizeForDraw() {
-    if (roundMode !== 'category') {
-        return popRandomItem(prizesList);
+function syncPrizePlaceholderToggleUI() {
+    const uploadToggle = document.getElementById('show-prize-placeholder');
+    const settingsToggle = document.getElementById('settings-show-prize-placeholder');
+    if (uploadToggle) {
+        uploadToggle.checked = showPrizePlaceholderWhenMissing;
     }
-
-    const categories = getAvailableRoundCategories(prizesList);
-    if (categories.length === 0) {
-        return popRandomItem(prizesList);
+    if (settingsToggle) {
+        settingsToggle.checked = showPrizePlaceholderWhenMissing;
     }
-
-    if (!currentRoundCategory || !categories.includes(currentRoundCategory)) {
-        currentRoundCategory = (roundStartCategory && categories.includes(roundStartCategory))
-            ? roundStartCategory
-            : categories[0];
-    }
-
-    let attempts = 0;
-    while (attempts < categories.length) {
-        const candidateIndices = [];
-        for (let i = 0; i < prizesList.length; i++) {
-            if ((prizesList[i].category || '').toString().trim() === currentRoundCategory) {
-                candidateIndices.push(i);
-            }
-        }
-
-        const selected = popRandomItemByIndices(prizesList, candidateIndices);
-        if (selected) {
-            return selected;
-        }
-
-        const currentIndex = categories.indexOf(currentRoundCategory);
-        currentRoundCategory = categories[(currentIndex + 1) % categories.length];
-        attempts++;
-    }
-
-    return popRandomItem(prizesList);
-}
-
-function getPostDrawDelayMs() {
-    return drawPaceMode === 'fast' ? 0 : 3000;
-}
-
-function runAfterPostDrawDelay(callback) {
-    const delay = getPostDrawDelayMs();
-    if (delay <= 0) {
-        callback();
-        return;
-    }
-    setTimeout(callback, delay);
 }
 
 function popRandomItem(list) {
@@ -358,13 +291,9 @@ function saveState() {
         isPaused,
         drawIntervalTime,
         shuffleDuration,
-        drawPaceMode,
-        roundMode,
-        roundStartCategory,
-        currentRoundCategory,
         exportFileName,
+        showPrizePlaceholderWhenMissing,
         eventYear,
-        presentationModeEnabled,
         raffleStarted,
         timestamp: Date.now()
     };
@@ -403,18 +332,14 @@ function restoreRaffle(state) {
     winners = state.winners || [];
     drawIntervalTime = state.drawIntervalTime || 3000;
     shuffleDuration = state.shuffleDuration || 2000;
-    drawPaceMode = sanitizeDrawPaceMode(state.drawPaceMode || 'cinematic');
-    roundMode = sanitizeRoundMode(state.roundMode || 'off');
-    roundStartCategory = state.roundStartCategory || '';
-    currentRoundCategory = state.currentRoundCategory || '';
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
+    showPrizePlaceholderWhenMissing = state.showPrizePlaceholderWhenMissing !== false;
     eventYear = sanitizeEventYear(state.eventYear || DEFAULT_EVENT_YEAR);
-    applyPresentationMode(!!state.presentationModeEnabled);
     isPaused = true; // Always restore paused so user can review
     raffleStarted = true;
 
     updateEventYearUI();
-    syncRoundModeControls();
+    syncPrizePlaceholderToggleUI();
     
     // Hide upload, show raffle section
     uploadSection.classList.add('hidden');
@@ -485,11 +410,6 @@ const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
 const validationSummary = document.getElementById('validation-summary');
 const validationSummaryBody = document.getElementById('validation-summary-body');
-const roundModeInput = document.getElementById('round-mode');
-const roundStartCategoryInput = document.getElementById('round-start-category');
-const roundInfo = document.getElementById('round-info');
-const presentationToggleBtn = document.getElementById('presentation-toggle-btn');
-const shortcutHelpBtn = document.getElementById('shortcut-help-btn');
 const recoveryBanner = document.getElementById('recovery-banner');
 const recoveryBannerText = document.getElementById('recovery-banner-text');
 const resumeSessionBtn = document.getElementById('resume-session-btn');
@@ -502,18 +422,11 @@ const appDialogTitle = document.getElementById('app-dialog-title');
 const appDialogMessage = document.getElementById('app-dialog-message');
 const appDialogCancelBtn = document.getElementById('app-dialog-cancel');
 const appDialogOkBtn = document.getElementById('app-dialog-ok');
-const shortcutsModal = document.getElementById('shortcuts-modal');
-const shortcutsModalOverlay = document.getElementById('shortcuts-modal-overlay');
-const shortcutsCloseBtn = document.getElementById('shortcuts-close-btn');
 const winnerPhotoFallbackBadge = document.getElementById('winner-photo-fallback-badge');
-const prizePhotoFallbackBadge = document.getElementById('prize-photo-fallback-badge');
-const settingsRoundModeInput = document.getElementById('settings-round-mode');
-const settingsRoundStartCategoryInput = document.getElementById('settings-round-start-category');
 
 let appDialogResolver = null;
 let appDialogMode = 'alert';
 let pendingRecoveredState = null;
-let presentationModeEnabled = false;
 let isRenderingWinnersGrid = false;
 let winnersRenderScheduled = false;
 let statusChipState = {
@@ -562,33 +475,6 @@ function showStyledConfirm(message, title = 'Please Confirm') {
     return openAppDialog({ title, message, mode: 'confirm' });
 }
 
-function applyPresentationMode(enabled) {
-    presentationModeEnabled = !!enabled;
-    document.body.classList.toggle('presentation-mode', presentationModeEnabled);
-    if (presentationToggleBtn) {
-        presentationToggleBtn.textContent = presentationModeEnabled ? '🖥️ Presentation On' : '🖥️ Presentation Off';
-    }
-    try {
-        localStorage.setItem(PRESENTATION_MODE_KEY, presentationModeEnabled ? '1' : '0');
-    } catch (e) {
-        console.warn('Could not persist presentation mode:', e);
-    }
-}
-
-function togglePresentationMode() {
-    applyPresentationMode(!presentationModeEnabled);
-}
-
-function openShortcutsModal() {
-    if (!shortcutsModal) return;
-    shortcutsModal.classList.remove('hidden');
-}
-
-function closeShortcutsModal() {
-    if (!shortcutsModal) return;
-    shortcutsModal.classList.add('hidden');
-}
-
 function renderStatusChips() {
     const chips = [];
     if (statusChipState.parsing) {
@@ -608,58 +494,6 @@ function renderStatusChips() {
     if (statusChipsLive) {
         statusChipsLive.innerHTML = html;
     }
-}
-
-function syncRoundCategorySelectOptions() {
-    roundCategories = getAvailableRoundCategories(prizesList);
-
-    const applyOptions = (selectEl) => {
-        if (!selectEl) return;
-        selectEl.innerHTML = '';
-
-        const autoOption = document.createElement('option');
-        autoOption.value = '';
-        autoOption.textContent = 'Auto';
-        selectEl.appendChild(autoOption);
-
-        roundCategories.forEach((category) => {
-            const option = document.createElement('option');
-            option.value = category;
-            option.textContent = category;
-            selectEl.appendChild(option);
-        });
-
-        selectEl.value = (roundStartCategory && roundCategories.includes(roundStartCategory))
-            ? roundStartCategory
-            : '';
-    };
-
-    applyOptions(roundStartCategoryInput);
-    applyOptions(settingsRoundStartCategoryInput);
-}
-
-function updateRoundInfoUI() {
-    if (!roundInfo) return;
-    if (roundMode !== 'category') {
-        roundInfo.classList.add('hidden');
-        roundInfo.textContent = '';
-        return;
-    }
-
-    const label = currentRoundCategory || roundStartCategory || (roundCategories[0] || 'Auto');
-    roundInfo.textContent = `Round Category: ${label}`;
-    roundInfo.classList.remove('hidden');
-}
-
-function syncRoundModeControls() {
-    if (roundModeInput) {
-        roundModeInput.value = roundMode;
-    }
-    if (settingsRoundModeInput) {
-        settingsRoundModeInput.value = roundMode;
-    }
-    syncRoundCategorySelectOptions();
-    updateRoundInfoUI();
 }
 
 function getValidationErrorCount() {
@@ -735,79 +569,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const uploadYearInput = document.getElementById('event-year');
     const settingsYearInput = document.getElementById('settings-event-year');
-    const uploadPaceModeInput = document.getElementById('draw-pace-mode');
-    const settingsPaceModeInput = document.getElementById('settings-draw-pace-mode');
+    const uploadPlaceholderToggle = document.getElementById('show-prize-placeholder');
+    const settingsPlaceholderToggle = document.getElementById('settings-show-prize-placeholder');
     updateEventYearUI();
+    syncPrizePlaceholderToggleUI();
 
-    let savedPresentationMode = false;
-    try {
-        savedPresentationMode = localStorage.getItem(PRESENTATION_MODE_KEY) === '1';
-    } catch (e) {
-        console.warn('Could not read presentation mode preference:', e);
-    }
-    applyPresentationMode(savedPresentationMode);
-
-    if (uploadPaceModeInput) {
-        uploadPaceModeInput.value = drawPaceMode;
-        uploadPaceModeInput.addEventListener('change', () => {
-            drawPaceMode = sanitizeDrawPaceMode(uploadPaceModeInput.value);
-            if (settingsPaceModeInput) {
-                settingsPaceModeInput.value = drawPaceMode;
+    if (uploadPlaceholderToggle) {
+        uploadPlaceholderToggle.addEventListener('change', () => {
+            showPrizePlaceholderWhenMissing = !!uploadPlaceholderToggle.checked;
+            if (settingsPlaceholderToggle) {
+                settingsPlaceholderToggle.checked = showPrizePlaceholderWhenMissing;
             }
         });
     }
 
-    if (settingsPaceModeInput) {
-        settingsPaceModeInput.value = drawPaceMode;
-        settingsPaceModeInput.addEventListener('change', () => {
-            drawPaceMode = sanitizeDrawPaceMode(settingsPaceModeInput.value);
-            if (uploadPaceModeInput) {
-                uploadPaceModeInput.value = drawPaceMode;
+    if (settingsPlaceholderToggle) {
+        settingsPlaceholderToggle.addEventListener('change', () => {
+            showPrizePlaceholderWhenMissing = !!settingsPlaceholderToggle.checked;
+            if (uploadPlaceholderToggle) {
+                uploadPlaceholderToggle.checked = showPrizePlaceholderWhenMissing;
             }
-        });
-    }
-
-    if (roundModeInput) {
-        roundModeInput.addEventListener('change', () => {
-            roundMode = sanitizeRoundMode(roundModeInput.value);
-            if (settingsRoundModeInput) {
-                settingsRoundModeInput.value = roundMode;
-            }
-            currentRoundCategory = '';
-            updateRoundInfoUI();
-        });
-    }
-
-    if (settingsRoundModeInput) {
-        settingsRoundModeInput.addEventListener('change', () => {
-            roundMode = sanitizeRoundMode(settingsRoundModeInput.value);
-            if (roundModeInput) {
-                roundModeInput.value = roundMode;
-            }
-            currentRoundCategory = '';
-            updateRoundInfoUI();
-        });
-    }
-
-    if (roundStartCategoryInput) {
-        roundStartCategoryInput.addEventListener('change', () => {
-            roundStartCategory = roundStartCategoryInput.value || '';
-            if (settingsRoundStartCategoryInput) {
-                settingsRoundStartCategoryInput.value = roundStartCategory;
-            }
-            currentRoundCategory = roundStartCategory || '';
-            updateRoundInfoUI();
-        });
-    }
-
-    if (settingsRoundStartCategoryInput) {
-        settingsRoundStartCategoryInput.addEventListener('change', () => {
-            roundStartCategory = settingsRoundStartCategoryInput.value || '';
-            if (roundStartCategoryInput) {
-                roundStartCategoryInput.value = roundStartCategory;
-            }
-            currentRoundCategory = roundStartCategory || '';
-            updateRoundInfoUI();
         });
     }
 
@@ -833,7 +614,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderValidationSummary();
     renderStatusChips();
-    syncRoundModeControls();
 
     if (winnersGrid) {
         winnersGrid.addEventListener('scroll', () => {
@@ -843,22 +623,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 });
-
-if (presentationToggleBtn) {
-    presentationToggleBtn.addEventListener('click', togglePresentationMode);
-}
-
-if (shortcutHelpBtn) {
-    shortcutHelpBtn.addEventListener('click', openShortcutsModal);
-}
-
-if (shortcutsModalOverlay) {
-    shortcutsModalOverlay.addEventListener('click', closeShortcutsModal);
-}
-
-if (shortcutsCloseBtn) {
-    shortcutsCloseBtn.addEventListener('click', closeShortcutsModal);
-}
 
 if (resumeSessionBtn) {
     resumeSessionBtn.addEventListener('click', () => {
@@ -1062,7 +826,6 @@ function parsePrizesData(data) {
     }
 
     validationState.prizes.loadedCount = prizesList.length;
-    syncRoundCategorySelectOptions();
 }
 
 function checkReadyToStart() {
@@ -1077,13 +840,6 @@ function startRaffle() {
     eventYear = sanitizeEventYear(yearInput ? yearInput.value : DEFAULT_EVENT_YEAR);
     updateEventYearUI();
 
-    const drawPaceModeInput = document.getElementById('draw-pace-mode');
-    drawPaceMode = sanitizeDrawPaceMode(drawPaceModeInput ? drawPaceModeInput.value : 'cinematic');
-    roundMode = sanitizeRoundMode(roundModeInput ? roundModeInput.value : 'off');
-    roundStartCategory = roundStartCategoryInput ? (roundStartCategoryInput.value || '') : '';
-    currentRoundCategory = roundStartCategory || '';
-    updateRoundInfoUI();
-
     // Get interval and shuffle duration from inputs
     const intervalVal = parseFloat(document.getElementById('draw-interval').value);
     if (!isNaN(intervalVal) && intervalVal > 0 && intervalVal <= 300) drawIntervalTime = Math.round(intervalVal * 1000);
@@ -1091,6 +847,9 @@ function startRaffle() {
     if (!isNaN(shuffleVal) && shuffleVal > 0 && shuffleVal <= 30) shuffleDuration = Math.round(shuffleVal * 1000);
     const pin = document.getElementById('setup-pin');
     settingsPin = (pin && pin.value.trim()) ? pin.value.trim() : '1111';
+    const placeholderToggle = document.getElementById('show-prize-placeholder');
+    showPrizePlaceholderWhenMissing = placeholderToggle ? !!placeholderToggle.checked : true;
+    syncPrizePlaceholderToggleUI();
     raffleStarted = true;
     
     uploadSection.classList.add('hidden');
@@ -1115,9 +874,9 @@ function startAutoDraw() {
     // Perform first draw immediately
     draw().then(() => {
         // Set up interval for subsequent draws after winner reveal delay (if any)
-        runAfterPostDrawDelay(() => {
+        setTimeout(() => {
             scheduleNextDraw();
-        });
+        }, POST_DRAW_DELAY_MS);
     });
 }
 
@@ -1147,9 +906,9 @@ function scheduleNextDraw() {
     autoDrawInterval = setTimeout(() => {
         if (!isPaused && prizesList.length > 0) {
             draw().then(() => {
-                runAfterPostDrawDelay(() => {
+                setTimeout(() => {
                     scheduleNextDraw();
-                });
+                }, POST_DRAW_DELAY_MS);
             });
         }
     }, drawIntervalTime);
@@ -1205,9 +964,9 @@ function skipToNext() {
     
     draw().then(() => {
         if (prizesList.length > 0 && !isPaused) {
-            runAfterPostDrawDelay(() => {
+            setTimeout(() => {
                 scheduleNextDraw();
-            });
+            }, POST_DRAW_DELAY_MS);
         }
     });
 }
@@ -1244,7 +1003,7 @@ async function draw() {
 
     // Select and remove in O(1) average-time by swap-and-pop
     const winner = popRandomItem(staffList);
-    const prize = pickPrizeForDraw();
+    const prize = popRandomItem(prizesList);
     if (!winner || !prize) {
         isDrawing = false;
         pauseBtn.disabled = false;
@@ -1252,12 +1011,8 @@ async function draw() {
         return Promise.resolve();
     }
 
-    const appliedRoundCategory = roundMode === 'category'
-        ? (currentRoundCategory || roundStartCategory || prize.category || '')
-        : (prize.category || '');
-
     // Add to winners
-    winners.push({ ...winner, prize, roundCategory: appliedRoundCategory });
+    winners.push({ ...winner, prize });
     
     // Save state after each winner
     saveState();
@@ -1274,7 +1029,6 @@ async function draw() {
     
     // Update stats
     updateStats();
-    updateRoundInfoUI();
     
     // Add to winners grid
     addToWinnersGrid(winner, prize, winners.length);
@@ -1340,22 +1094,27 @@ function displayWinner(winner, prize) {
     // Show prize photo if exists
     const prizePhotoEl = document.getElementById('prize-photo');
     if (prizePhotoEl) {
-        const prizePhotoPath = getPrizePhotoPath(prize.photo);
-        const isPrizeDefaultFromData = prizePhotoPath === PRIZE_DEFAULT_PHOTO;
-        if (prizePhotoFallbackBadge) {
-            prizePhotoFallbackBadge.classList.toggle('hidden', !isPrizeDefaultFromData);
+        const prizePhotoName = normalizePhotoFileName(prize.photo);
+        const shouldShowPrizeImage = showPrizePlaceholderWhenMissing || !!prizePhotoName;
+        winnerCard.classList.toggle('no-prize-image', !shouldShowPrizeImage);
+        if (!shouldShowPrizeImage) {
+            prizePhotoEl.src = '';
+            prizePhotoEl.style.display = 'none';
+            winnerCard.classList.remove('hidden');
+            return;
         }
+
+        const prizePhotoPath = getPrizePhotoPath(prizePhotoName);
         prizePhotoEl.src = prizePhotoPath;
         prizePhotoEl.style.display = 'block';
-        prizePhotoEl.onload = () => {
-            if (prizePhotoFallbackBadge && prizePhotoPath !== PRIZE_DEFAULT_PHOTO) {
-                prizePhotoFallbackBadge.classList.add('hidden');
-            }
-        };
+        prizePhotoEl.onload = null;
         prizePhotoEl.onerror = () => {
-            prizePhotoEl.src = PRIZE_DEFAULT_PHOTO;
-            if (prizePhotoFallbackBadge) {
-                prizePhotoFallbackBadge.classList.remove('hidden');
+            if (showPrizePlaceholderWhenMissing) {
+                prizePhotoEl.src = PRIZE_DEFAULT_PHOTO;
+                winnerCard.classList.remove('no-prize-image');
+            } else {
+                prizePhotoEl.style.display = 'none';
+                winnerCard.classList.add('no-prize-image');
             }
         };
     }
@@ -1449,8 +1208,7 @@ function exportWinners() {
         'Department': w.department,
         'Position': w.position,
         'Prize': w.prize.name,
-        'Category': w.prize.category || '',
-        'Round Category': w.roundCategory || ''
+        'Category': w.prize.category || ''
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
@@ -1465,8 +1223,7 @@ function exportWinners() {
         { wch: 20 },  // Department
         { wch: 25 },  // Position
         { wch: 30 },  // Prize
-        { wch: 20 },  // Category
-        { wch: 24 }   // Round Category
+        { wch: 20 }   // Category
     ];
     
     XLSX.writeFile(wb, `${exportFileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -1580,16 +1337,10 @@ function openSettings() {
     }
     document.getElementById('settings-modal').classList.remove('hidden');
     document.getElementById('settings-event-year').value = eventYear;
-    document.getElementById('settings-draw-pace-mode').value = drawPaceMode;
-    if (settingsRoundModeInput) {
-        settingsRoundModeInput.value = roundMode;
-    }
-    if (settingsRoundStartCategoryInput) {
-        settingsRoundStartCategoryInput.value = roundStartCategory || '';
-    }
     document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
     document.getElementById('settings-export-filename').value = exportFileName;
+    syncPrizePlaceholderToggleUI();
 }
 
 function closeSettings() {
@@ -1599,17 +1350,6 @@ function closeSettings() {
 function saveSettings() {
     const newEventYear = sanitizeEventYear(document.getElementById('settings-event-year').value);
     eventYear = newEventYear;
-    drawPaceMode = sanitizeDrawPaceMode(document.getElementById('settings-draw-pace-mode').value);
-
-    const uploadPaceModeInput = document.getElementById('draw-pace-mode');
-    if (uploadPaceModeInput) {
-        uploadPaceModeInput.value = drawPaceMode;
-    }
-
-    roundMode = sanitizeRoundMode(settingsRoundModeInput ? settingsRoundModeInput.value : 'off');
-    roundStartCategory = settingsRoundStartCategoryInput ? (settingsRoundStartCategoryInput.value || '') : '';
-    currentRoundCategory = roundStartCategory || '';
-    syncRoundModeControls();
 
     const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
     if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {
@@ -1621,6 +1361,15 @@ function saveSettings() {
     }
     const newExport = document.getElementById('settings-export-filename').value.trim();
     if (newExport) exportFileName = newExport;
+    const settingsPlaceholderToggle = document.getElementById('settings-show-prize-placeholder');
+    showPrizePlaceholderWhenMissing = settingsPlaceholderToggle ? !!settingsPlaceholderToggle.checked : true;
+    syncPrizePlaceholderToggleUI();
+
+    const latestWinner = winners[winners.length - 1];
+    if (latestWinner && winnerCard && !winnerCard.classList.contains('hidden')) {
+        displayWinner(latestWinner, latestWinner.prize);
+    }
+    renderWinnersGrid();
     updateEventYearUI();
     saveState();
     closeSettings();
@@ -1660,18 +1409,7 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.code === 'Escape') {
-        closeShortcutsModal();
         closeSettings();
-        return;
-    }
-    if (e.key === '?') {
-        e.preventDefault();
-        openShortcutsModal();
-        return;
-    }
-    if (e.code === 'KeyP') {
-        e.preventDefault();
-        togglePresentationMode();
         return;
     }
     if (raffleSection.classList.contains('hidden')) return;

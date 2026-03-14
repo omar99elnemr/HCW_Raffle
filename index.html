@@ -25,10 +25,6 @@
             <img src="centric.jpg" alt="Hyatt Centric" class="logo-img" onerror="this.src='centric_placeholder.svg'">
           <!--  <h2>Hyatt Centric</h2> -->
         </div>
-                <div class="header-actions">
-                        <button class="header-action-btn" id="presentation-toggle-btn" type="button" title="Toggle presentation mode">🖥️ Presentation</button>
-                    <button class="header-action-btn" id="shortcut-help-btn" type="button" title="Keyboard shortcuts">?</button>
-                </div>
     </header>
 
     <!-- Main Content -->
@@ -86,13 +82,6 @@
                     <input type="number" id="event-year" value="2026" min="2000" max="2100" step="1" class="setting-input">
                 </div>
                 <div class="interval-setting">
-                    <label for="draw-pace-mode">Draw Pace Mode:</label>
-                    <select id="draw-pace-mode" class="setting-input">
-                        <option value="cinematic" selected>Cinematic</option>
-                        <option value="fast">Fast</option>
-                    </select>
-                </div>
-                <div class="interval-setting">
                     <label for="draw-interval">Time between draws (seconds):</label>
                     <input type="number" id="draw-interval" value="3" min="1" max="300" step="1" class="setting-input">
                 </div>
@@ -104,27 +93,18 @@
                     <label for="setup-pin">Set PIN (for Reset) (Default: 1111):</label>
                     <input type="password" id="setup-pin" placeholder="Default PIN is 1111" class="setting-input" maxlength="20">
                 </div>
+                <div class="interval-setting toggle-setting">
+                    <label for="show-prize-placeholder">Prize Photo Placeholder:</label>
+                    <label class="toggle-inline" for="show-prize-placeholder">
+                        <input type="checkbox" id="show-prize-placeholder" checked>
+                        <span>Show default image when prize photo is missing</span>
+                    </label>
+                </div>
             </div>
 
             <div class="validation-summary" id="validation-summary">
                 <div class="validation-title">Validation Summary</div>
                 <div class="validation-body" id="validation-summary-body">Upload both staff and prizes files to validate data before starting.</div>
-            </div>
-
-            <div class="round-controls">
-                <div class="interval-setting">
-                    <label for="round-mode">Prize Rounds:</label>
-                    <select id="round-mode" class="setting-input">
-                        <option value="off" selected>Off</option>
-                        <option value="category">By Category</option>
-                    </select>
-                </div>
-                <div class="interval-setting">
-                    <label for="round-start-category">Start Category:</label>
-                    <select id="round-start-category" class="setting-input">
-                        <option value="">Auto</option>
-                    </select>
-                </div>
             </div>
             
             <button class="start-btn" id="start-btn" disabled onclick="startRaffle()">
@@ -158,7 +138,6 @@
                     <div class="auto-status" id="auto-status">
                         <div class="status-text">Auto Draw Active</div>
                         <div class="next-draw">Next draw in: <span id="countdown">--</span>s</div>
-                        <div class="round-info hidden" id="round-info"></div>
                         <div class="progress-bar">
                             <div class="progress-fill" id="progress-fill"></div>
                         </div>
@@ -181,7 +160,6 @@
                                 <div class="prize-label">🎁 Wins 🎁</div>
                                 <h3 class="prize-name" id="prize-name"></h3>
                                 <img id="prize-photo" src="" alt="Prize" class="prize-photo" style="display:none;">
-                                <span class="fallback-photo-badge hidden" id="prize-photo-fallback-badge">Default photo used</span>
                             </div>
                         </div>
                         
@@ -250,26 +228,6 @@
                     <input type="number" id="settings-event-year" value="2026" min="2000" max="2100" step="1" class="setting-input">
                 </div>
                 <div class="setting-group">
-                    <label for="settings-draw-pace-mode">Draw Pace Mode:</label>
-                    <select id="settings-draw-pace-mode" class="setting-input">
-                        <option value="cinematic" selected>Cinematic</option>
-                        <option value="fast">Fast</option>
-                    </select>
-                </div>
-                <div class="setting-group">
-                    <label for="settings-round-mode">Prize Rounds:</label>
-                    <select id="settings-round-mode" class="setting-input">
-                        <option value="off" selected>Off</option>
-                        <option value="category">By Category</option>
-                    </select>
-                </div>
-                <div class="setting-group">
-                    <label for="settings-round-start-category">Start Category:</label>
-                    <select id="settings-round-start-category" class="setting-input">
-                        <option value="">Auto</option>
-                    </select>
-                </div>
-                <div class="setting-group">
                     <label for="settings-draw-interval">Time Between Draws (seconds):</label>
                     <input type="number" id="settings-draw-interval" value="3" min="1" max="300" step="1" class="setting-input">
                 </div>
@@ -280,6 +238,12 @@
                 <div class="setting-group">
                     <label for="settings-export-filename">Export File Name Prefix:</label>
                     <input type="text" id="settings-export-filename" value="Raffle_Winners_Auto" class="setting-input">
+                </div>
+                <div class="setting-group">
+                    <label class="toggle-inline" for="settings-show-prize-placeholder">
+                        <input type="checkbox" id="settings-show-prize-placeholder" checked>
+                        <span>Show default image when prize photo is missing</span>
+                    </label>
                 </div>
                 <button class="settings-save-btn" onclick="saveSettings()">💾 Save Settings</button>
                 <hr class="settings-divider">
@@ -301,24 +265,6 @@
             <div class="app-dialog-actions">
                 <button id="app-dialog-cancel" class="app-dialog-btn app-dialog-btn-cancel" type="button">Cancel</button>
                 <button id="app-dialog-ok" class="app-dialog-btn app-dialog-btn-ok" type="button">OK</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Keyboard Shortcuts Modal -->
-    <div class="shortcuts-modal hidden" id="shortcuts-modal">
-        <div class="shortcuts-modal-overlay" id="shortcuts-modal-overlay"></div>
-        <div class="shortcuts-modal-content">
-            <div class="shortcuts-modal-header">
-                <h3>⌨️ Keyboard Shortcuts</h3>
-                <button class="shortcuts-close-btn" id="shortcuts-close-btn" type="button">✕</button>
-            </div>
-            <div class="shortcuts-list">
-                <div class="shortcut-item"><span class="shortcut-key">Space</span><span class="shortcut-desc">Pause / Resume draw</span></div>
-                <div class="shortcut-item"><span class="shortcut-key">Enter</span><span class="shortcut-desc">Draw now</span></div>
-                <div class="shortcut-item"><span class="shortcut-key">P</span><span class="shortcut-desc">Toggle presentation mode</span></div>
-                <div class="shortcut-item"><span class="shortcut-key">?</span><span class="shortcut-desc">Open shortcuts help</span></div>
-                <div class="shortcut-item"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close modal/dialog</span></div>
             </div>
         </div>
     </div>
