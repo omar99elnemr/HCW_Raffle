@@ -6,12 +6,32 @@ let isDrawing = false;
 let isPaused = false;
 let autoDrawInterval = null;
 let countdownInterval = null;
-let drawIntervalTime = 8000;
+let drawIntervalTime = 3000;
 let countdownTime = 0;
 let raffleStarted = false;
-let shuffleDuration = 3000;
+let shuffleDuration = 2000;
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
+
+const STAFF_PHOTO_DIR = 'staff/staff_photos';
+const PRIZE_PHOTO_DIR = 'prizes/prizes_photos';
+const STAFF_DEFAULT_PHOTO = `${STAFF_PHOTO_DIR}/default.svg`;
+const PRIZE_DEFAULT_PHOTO = `${PRIZE_PHOTO_DIR}/default.svg`;
+
+function normalizePhotoFileName(fileName) {
+    if (!fileName) return '';
+    return fileName.toString().split(/[\\/]/).pop().trim();
+}
+
+function getStaffPhotoPath(fileName) {
+    const normalized = normalizePhotoFileName(fileName);
+    return normalized ? `${STAFF_PHOTO_DIR}/${normalized}` : STAFF_DEFAULT_PHOTO;
+}
+
+function getPrizePhotoPath(fileName) {
+    const normalized = normalizePhotoFileName(fileName);
+    return normalized ? `${PRIZE_PHOTO_DIR}/${normalized}` : PRIZE_DEFAULT_PHOTO;
+}
 
 // ===== Constant-time PIN comparison =====
 function pinsMatch(a, b) {
@@ -141,8 +161,8 @@ function restoreRaffle(state) {
     staffList = state.staffList || [];
     prizesList = state.prizesList || [];
     winners = state.winners || [];
-    drawIntervalTime = state.drawIntervalTime || 8000;
-    shuffleDuration = state.shuffleDuration || 3000;
+    drawIntervalTime = state.drawIntervalTime || 3000;
+    shuffleDuration = state.shuffleDuration || 2000;
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
     isPaused = true; // Always restore paused so user can review
     raffleStarted = true;
@@ -164,18 +184,17 @@ function restoreRaffle(state) {
     winners.forEach((winner, index) => {
         const item = document.createElement('div');
         item.className = 'winner-item';
-        const prizePhotoHtml = winner.prize && winner.prize.photo 
-            ? `<img src="prizes/prizes_photos/${winner.prize.photo}" alt="prize" class="winner-item-prize-photo" onerror="this.style.display='none'">`
-            : '';
+        const staffPhotoPath = getStaffPhotoPath(winner.photo);
+        const prizePhotoPath = getPrizePhotoPath(winner.prize && winner.prize.photo);
         item.innerHTML = `
             <div class="winner-item-number">${index + 1}</div>
-            <img src="staff/staff_photos/${winner.photo}" alt="${winner.name}" class="winner-item-photo" 
-                 onerror="this.src='staff/staff_photos/default.svg'">
+            <img src="${staffPhotoPath}" alt="${winner.name}" class="winner-item-photo" 
+                 onerror="this.src='${STAFF_DEFAULT_PHOTO}'">
             <div class="winner-item-info">
                 <div class="winner-item-name">${winner.name}</div>
                 <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
             </div>
-            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}${prizePhotoHtml}</div>
+            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'"></div>
         `;
         winnersGrid.appendChild(item);
     });
@@ -209,6 +228,8 @@ const staffFileName = document.getElementById('staff-file-name');
 const prizesFileName = document.getElementById('prizes-file-name');
 const staffCount = document.getElementById('staff-count');
 const prizesCount = document.getElementById('prizes-count');
+const staffLoading = document.getElementById('staff-loading');
+const prizesLoading = document.getElementById('prizes-loading');
 const startBtn = document.getElementById('start-btn');
 const uploadSection = document.getElementById('upload-section');
 const raffleSection = document.getElementById('raffle-section');
@@ -243,6 +264,11 @@ prizesFileInput.addEventListener('change', (e) => handleFileUpload(e, 'prizes'))
 
 // ===== Check for Saved State on Page Load =====
 document.addEventListener('DOMContentLoaded', () => {
+    const pinInput = document.getElementById('setup-pin');
+    if (pinInput && !pinInput.value) {
+        pinInput.value = '1111';
+    }
+
     const savedState = loadState();
     if (savedState && savedState.raffleStarted && (savedState.prizesList?.length > 0 || savedState.winners?.length > 0)) {
         // Show confirmation dialog
@@ -258,15 +284,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+function setUploadLoading(type, isLoading) {
+    const loadingEl = type === 'staff' ? staffLoading : prizesLoading;
+    const countEl = type === 'staff' ? staffCount : prizesCount;
+    const uploadBox = document.getElementById(type === 'staff' ? 'staff-upload' : 'prizes-upload');
+    if (!loadingEl || !countEl || !uploadBox) return;
+
+    loadingEl.classList.toggle('hidden', !isLoading);
+    if (isLoading) {
+        countEl.textContent = '';
+        uploadBox.classList.remove('loaded');
+    }
+}
+
 function handleFileUpload(event, type) {
     const file = event.target.files[0];
     if (!file) return;
 
+    const allowedExtensions = ['csv', 'xlsx', 'xls'];
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!allowedExtensions.includes(extension)) {
+        alert('Unsupported file type. Please upload a CSV or Excel file (.csv, .xlsx, .xls).');
+        event.target.value = '';
+        return;
+    }
+
+    setUploadLoading(type, true);
+
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const isCsv = extension === 'csv';
+            const workbook = isCsv
+                ? XLSX.read(e.target.result, { type: 'string' })
+                : XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
@@ -284,11 +335,21 @@ function handleFileUpload(event, type) {
 
             checkReadyToStart();
         } catch (error) {
-            alert('Error reading file. Please make sure it\'s a valid Excel file.');
+            alert('Error reading file. Please make sure it is a valid CSV or Excel file.');
             console.error(error);
+        } finally {
+            setUploadLoading(type, false);
         }
     };
-    reader.readAsArrayBuffer(file);
+    reader.onerror = () => {
+        setUploadLoading(type, false);
+        alert('Error reading file. Please try again.');
+    };
+    if (extension === 'csv') {
+        reader.readAsText(file);
+    } else {
+        reader.readAsArrayBuffer(file);
+    }
 }
 
 function parseStaffData(data) {
@@ -336,7 +397,7 @@ function startRaffle() {
     const shuffleVal = parseFloat(document.getElementById('shuffle-duration').value);
     if (!isNaN(shuffleVal) && shuffleVal > 0 && shuffleVal <= 30) shuffleDuration = Math.round(shuffleVal * 1000);
     const pin = document.getElementById('setup-pin');
-    settingsPin = pin ? pin.value || '' : '';
+    settingsPin = (pin && pin.value.trim()) ? pin.value.trim() : '1111';
     raffleStarted = true;
     
     uploadSection.classList.add('hidden');
@@ -550,10 +611,10 @@ async function draw() {
 }
 
 function displayWinner(winner, prize) {
-    const photoPath = `staff/staff_photos/${winner.photo}`;
+    const photoPath = getStaffPhotoPath(winner.photo);
     winnerPhoto.src = photoPath;
     winnerPhoto.onerror = () => {
-        winnerPhoto.src = 'staff/staff_photos/default.svg';
+        winnerPhoto.src = STAFF_DEFAULT_PHOTO;
     };
     
     winnerName.textContent = winner.name;
@@ -564,13 +625,9 @@ function displayWinner(winner, prize) {
     // Show prize photo if exists
     const prizePhotoEl = document.getElementById('prize-photo');
     if (prizePhotoEl) {
-        if (prize.photo) {
-            prizePhotoEl.src = `prizes/prizes_photos/${prize.photo}`;
-            prizePhotoEl.style.display = 'block';
-            prizePhotoEl.onerror = () => { prizePhotoEl.style.display = 'none'; };
-        } else {
-            prizePhotoEl.style.display = 'none';
-        }
+        prizePhotoEl.src = getPrizePhotoPath(prize.photo);
+        prizePhotoEl.style.display = 'block';
+        prizePhotoEl.onerror = () => { prizePhotoEl.src = PRIZE_DEFAULT_PHOTO; };
     }
     
     winnerCard.classList.remove('hidden');
@@ -592,20 +649,18 @@ function addToWinnersGrid(winner, prize, number) {
     const item = document.createElement('div');
     item.className = 'winner-item latest';
     item.style.animationDelay = '0.1s';
-    
-    const prizePhotoHtml = prize.photo 
-        ? `<img src="prizes/prizes_photos/${prize.photo}" alt="prize" class="winner-item-prize-photo" onerror="this.style.display='none'">`
-        : '';
+    const staffPhotoPath = getStaffPhotoPath(winner.photo);
+    const prizePhotoPath = getPrizePhotoPath(prize.photo);
     
     item.innerHTML = `
         <div class="winner-item-number">${number}</div>
-        <img src="staff/staff_photos/${winner.photo}" alt="${winner.name}" class="winner-item-photo" 
-             onerror="this.src='staff/staff_photos/default.svg'">
+        <img src="${staffPhotoPath}" alt="${winner.name}" class="winner-item-photo" 
+             onerror="this.src='${STAFF_DEFAULT_PHOTO}'">
         <div class="winner-item-info">
             <div class="winner-item-name">${winner.name}</div>
             <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
         </div>
-        <div class="winner-item-prize">🎁 ${prize.name}${prizePhotoHtml}</div>
+        <div class="winner-item-prize"> ${prize.name}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'"></div>
     `;
     
     winnersGrid.insertBefore(item, winnersGrid.firstChild);
@@ -743,6 +798,9 @@ function animateConfetti() {
 
 // ===== Settings Modal =====
 function openSettings() {
+    if (!raffleSection.classList.contains('hidden') && raffleStarted && !isPaused) {
+        togglePause();
+    }
     document.getElementById('settings-modal').classList.remove('hidden');
     document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
@@ -769,11 +827,6 @@ function saveSettings() {
 
 function resetRaffleWithPin() {
     const pin = document.getElementById('reset-pin-input').value;
-    if (!settingsPin) {
-        alert('No PIN was set. Reset is disabled.');
-        document.getElementById('reset-pin-input').value = '';
-        return;
-    }
     if (pinsMatch(pin, settingsPin)) {
         if (confirm('Are you sure you want to reset? All progress will be lost.')) {
             clearState();
