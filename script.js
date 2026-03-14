@@ -10,6 +10,7 @@ let drawIntervalTime = 3000;
 let countdownTime = 0;
 let raffleStarted = false;
 let shuffleDuration = 2000;
+let drawPaceMode = 'cinematic';
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
 const DEFAULT_EVENT_YEAR = 2026;
@@ -41,6 +42,23 @@ function sanitizeEventYear(value) {
         return DEFAULT_EVENT_YEAR;
     }
     return parsed;
+}
+
+function sanitizeDrawPaceMode(value) {
+    return value === 'fast' ? 'fast' : 'cinematic';
+}
+
+function getPostDrawDelayMs() {
+    return drawPaceMode === 'fast' ? 0 : 3000;
+}
+
+function runAfterPostDrawDelay(callback) {
+    const delay = getPostDrawDelayMs();
+    if (delay <= 0) {
+        callback();
+        return;
+    }
+    setTimeout(callback, delay);
 }
 
 function updateEventYearUI() {
@@ -153,6 +171,7 @@ function saveState() {
         isPaused,
         drawIntervalTime,
         shuffleDuration,
+        drawPaceMode,
         exportFileName,
         eventYear,
         raffleStarted,
@@ -193,6 +212,7 @@ function restoreRaffle(state) {
     winners = state.winners || [];
     drawIntervalTime = state.drawIntervalTime || 3000;
     shuffleDuration = state.shuffleDuration || 2000;
+    drawPaceMode = sanitizeDrawPaceMode(state.drawPaceMode || 'cinematic');
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
     eventYear = sanitizeEventYear(state.eventYear || DEFAULT_EVENT_YEAR);
     isPaused = true; // Always restore paused so user can review
@@ -363,7 +383,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const uploadYearInput = document.getElementById('event-year');
     const settingsYearInput = document.getElementById('settings-event-year');
+    const uploadPaceModeInput = document.getElementById('draw-pace-mode');
+    const settingsPaceModeInput = document.getElementById('settings-draw-pace-mode');
     updateEventYearUI();
+
+    if (uploadPaceModeInput) {
+        uploadPaceModeInput.value = drawPaceMode;
+        uploadPaceModeInput.addEventListener('change', () => {
+            drawPaceMode = sanitizeDrawPaceMode(uploadPaceModeInput.value);
+            if (settingsPaceModeInput) {
+                settingsPaceModeInput.value = drawPaceMode;
+            }
+        });
+    }
+
+    if (settingsPaceModeInput) {
+        settingsPaceModeInput.value = drawPaceMode;
+        settingsPaceModeInput.addEventListener('change', () => {
+            drawPaceMode = sanitizeDrawPaceMode(settingsPaceModeInput.value);
+            if (uploadPaceModeInput) {
+                uploadPaceModeInput.value = drawPaceMode;
+            }
+        });
+    }
 
     if (uploadYearInput) {
         uploadYearInput.addEventListener('change', () => {
@@ -510,6 +552,9 @@ function startRaffle() {
     eventYear = sanitizeEventYear(yearInput ? yearInput.value : DEFAULT_EVENT_YEAR);
     updateEventYearUI();
 
+    const drawPaceModeInput = document.getElementById('draw-pace-mode');
+    drawPaceMode = sanitizeDrawPaceMode(drawPaceModeInput ? drawPaceModeInput.value : 'cinematic');
+
     // Get interval and shuffle duration from inputs
     const intervalVal = parseFloat(document.getElementById('draw-interval').value);
     if (!isNaN(intervalVal) && intervalVal > 0 && intervalVal <= 300) drawIntervalTime = Math.round(intervalVal * 1000);
@@ -537,10 +582,10 @@ function startAutoDraw() {
     
     // Perform first draw immediately
     draw().then(() => {
-        // Set up interval for subsequent draws after winner is shown
-        setTimeout(() => {
+        // Set up interval for subsequent draws after winner reveal delay (if any)
+        runAfterPostDrawDelay(() => {
             scheduleNextDraw();
-        }, 3000); // Wait 3 seconds to show winner before starting countdown
+        });
     });
 }
 
@@ -570,10 +615,9 @@ function scheduleNextDraw() {
     autoDrawInterval = setTimeout(() => {
         if (!isPaused && prizesList.length > 0) {
             draw().then(() => {
-                // Wait 3 seconds to show winner before starting next countdown
-                setTimeout(() => {
+                runAfterPostDrawDelay(() => {
                     scheduleNextDraw();
-                }, 3000);
+                });
             });
         }
     }, drawIntervalTime);
@@ -626,11 +670,10 @@ function skipToNext() {
     clearTimeout(autoDrawInterval);
     
     draw().then(() => {
-        // Wait 3 seconds to show winner before starting next countdown
         if (prizesList.length > 0 && !isPaused) {
-            setTimeout(() => {
+            runAfterPostDrawDelay(() => {
                 scheduleNextDraw();
-            }, 3000);
+            });
         }
     });
 }
@@ -922,6 +965,7 @@ function openSettings() {
     }
     document.getElementById('settings-modal').classList.remove('hidden');
     document.getElementById('settings-event-year').value = eventYear;
+    document.getElementById('settings-draw-pace-mode').value = drawPaceMode;
     document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
     document.getElementById('settings-export-filename').value = exportFileName;
@@ -934,6 +978,12 @@ function closeSettings() {
 function saveSettings() {
     const newEventYear = sanitizeEventYear(document.getElementById('settings-event-year').value);
     eventYear = newEventYear;
+    drawPaceMode = sanitizeDrawPaceMode(document.getElementById('settings-draw-pace-mode').value);
+
+    const uploadPaceModeInput = document.getElementById('draw-pace-mode');
+    if (uploadPaceModeInput) {
+        uploadPaceModeInput.value = drawPaceMode;
+    }
 
     const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
     if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {
