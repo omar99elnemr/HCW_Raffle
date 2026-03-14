@@ -108,6 +108,48 @@ function runAfterPostDrawDelay(callback) {
     setTimeout(callback, delay);
 }
 
+function popRandomItem(list) {
+    if (!Array.isArray(list) || list.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * list.length);
+    const lastIndex = list.length - 1;
+    const selected = list[randomIndex];
+    list[randomIndex] = list[lastIndex];
+    list.pop();
+    return selected;
+}
+
+const preloadedAssetUrls = new Set();
+
+function preloadImage(src) {
+    if (!src || preloadedAssetUrls.has(src)) return;
+    const img = new Image();
+    img.src = src;
+    preloadedAssetUrls.add(src);
+}
+
+function preloadAudioById(audioId) {
+    const audioEl = document.getElementById(audioId);
+    if (audioEl) {
+        audioEl.load();
+    }
+}
+
+function preloadLikelyNextAssets() {
+    const previewStaff = staffList.slice(0, 4);
+    const previewPrizes = prizesList.slice(0, 4);
+
+    previewStaff.forEach((staff) => {
+        preloadImage(getStaffPhotoPath(staff.photo));
+    });
+
+    previewPrizes.forEach((prize) => {
+        preloadImage(getPrizePhotoPath(prize.photo));
+    });
+
+    Object.values(PRIZE_SOUNDS).forEach(preloadAudioById);
+    preloadAudioById('sound-default');
+}
+
 function updateEventYearUI() {
     const yearText = eventYear.toString();
     const titleEl = document.getElementById('event-title-text');
@@ -858,6 +900,9 @@ function startRaffle() {
     
     // Save initial state
     saveState();
+
+    // Warm up likely assets to reduce reveal flicker
+    preloadLikelyNextAssets();
     
     // Start auto draw after a short delay
     setTimeout(() => {
@@ -998,16 +1043,15 @@ async function draw() {
         }
     }
 
-    // Select winner
-    const winnerIndex = Math.floor(Math.random() * staffList.length);
-    const prizeIndex = Math.floor(Math.random() * prizesList.length);
-    
-    const winner = staffList[winnerIndex];
-    const prize = prizesList[prizeIndex];
-
-    // Remove from lists
-    staffList.splice(winnerIndex, 1);
-    prizesList.splice(prizeIndex, 1);
+    // Select and remove in O(1) average-time by swap-and-pop
+    const winner = popRandomItem(staffList);
+    const prize = popRandomItem(prizesList);
+    if (!winner || !prize) {
+        isDrawing = false;
+        pauseBtn.disabled = false;
+        skipBtn.disabled = false;
+        return Promise.resolve();
+    }
 
     // Add to winners
     winners.push({ ...winner, prize });
@@ -1018,6 +1062,9 @@ async function draw() {
     // Show winner
     slotMachine.classList.add('hidden');
     displayWinner(winner, prize);
+
+    // Preload upcoming likely assets for smoother next draw
+    preloadLikelyNextAssets();
     
     // Play prize sound based on prize value
     playPrizeSound(prize.name);
