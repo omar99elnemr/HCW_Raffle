@@ -186,6 +186,49 @@ body {
     color: var(--text-light);
 }
 
+.status-chips {
+    width: min(1100px, 100%);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 22px;
+}
+
+.left-panel .status-chips {
+    width: 100%;
+    margin: 2px 0 8px;
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    border-radius: 999px;
+    padding: 4px 10px;
+    border: 1px solid transparent;
+}
+
+.status-chip.info {
+    background: rgba(9, 132, 227, 0.18);
+    border-color: rgba(9, 132, 227, 0.4);
+    color: #90d1ff;
+}
+
+.status-chip.warning {
+    background: rgba(212, 175, 55, 0.2);
+    border-color: rgba(212, 175, 55, 0.45);
+    color: #f5e6a3;
+}
+
+.status-chip.success {
+    background: rgba(0, 184, 148, 0.18);
+    border-color: rgba(0, 184, 148, 0.45);
+    color: #8df2de;
+}
+
 .upload-box {
     background: var(--glass-bg);
     backdrop-filter: blur(10px);

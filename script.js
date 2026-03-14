@@ -362,6 +362,8 @@ const recoveryBanner = document.getElementById('recovery-banner');
 const recoveryBannerText = document.getElementById('recovery-banner-text');
 const resumeSessionBtn = document.getElementById('resume-session-btn');
 const startFreshBtn = document.getElementById('start-fresh-btn');
+const statusChipsUpload = document.getElementById('status-chips-upload');
+const statusChipsLive = document.getElementById('status-chips-live');
 const appDialog = document.getElementById('app-dialog');
 const appDialogOverlay = document.getElementById('app-dialog-overlay');
 const appDialogTitle = document.getElementById('app-dialog-title');
@@ -372,6 +374,11 @@ const appDialogOkBtn = document.getElementById('app-dialog-ok');
 let appDialogResolver = null;
 let appDialogMode = 'alert';
 let pendingRecoveredState = null;
+let statusChipState = {
+    parsing: false,
+    pausedBySettings: false,
+    recoveredSessionActive: false
+};
 let validationState = {
     staff: { uploaded: false, errors: [], warnings: [], loadedCount: 0 },
     prizes: { uploaded: false, errors: [], warnings: [], loadedCount: 0 }
@@ -411,6 +418,27 @@ function showStyledAlert(message, title = 'Notice') {
 
 function showStyledConfirm(message, title = 'Please Confirm') {
     return openAppDialog({ title, message, mode: 'confirm' });
+}
+
+function renderStatusChips() {
+    const chips = [];
+    if (statusChipState.parsing) {
+        chips.push({ text: 'Parsing file...', variant: 'info' });
+    }
+    if (statusChipState.pausedBySettings) {
+        chips.push({ text: 'Paused by settings', variant: 'warning' });
+    }
+    if (statusChipState.recoveredSessionActive) {
+        chips.push({ text: 'Recovered session active', variant: 'success' });
+    }
+
+    const html = chips.map((chip) => `<span class="status-chip ${chip.variant}">${chip.text}</span>`).join('');
+    if (statusChipsUpload) {
+        statusChipsUpload.innerHTML = html;
+    }
+    if (statusChipsLive) {
+        statusChipsLive.innerHTML = html;
+    }
 }
 
 function getValidationErrorCount() {
@@ -531,6 +559,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     renderValidationSummary();
+    renderStatusChips();
 });
 
 if (resumeSessionBtn) {
@@ -538,6 +567,8 @@ if (resumeSessionBtn) {
         if (!pendingRecoveredState) return;
         const stateToRestore = pendingRecoveredState;
         pendingRecoveredState = null;
+        statusChipState.recoveredSessionActive = true;
+        renderStatusChips();
         hideRecoveryBanner();
         restoreRaffle(stateToRestore);
     });
@@ -546,6 +577,8 @@ if (resumeSessionBtn) {
 if (startFreshBtn) {
     startFreshBtn.addEventListener('click', () => {
         pendingRecoveredState = null;
+        statusChipState.recoveredSessionActive = false;
+        renderStatusChips();
         clearState();
         hideRecoveryBanner();
     });
@@ -558,6 +591,8 @@ function setUploadLoading(type, isLoading) {
     if (!loadingEl || !countEl || !uploadBox) return;
 
     loadingEl.classList.toggle('hidden', !isLoading);
+    statusChipState.parsing = isLoading;
+    renderStatusChips();
     if (isLoading) {
         countEl.textContent = '';
         uploadBox.classList.remove('loaded');
@@ -840,6 +875,8 @@ function togglePause() {
         // Save state when paused
         saveState();
     } else {
+        statusChipState.pausedBySettings = false;
+        renderStatusChips();
         pauseText.textContent = '⏸️ Pause';
         pauseBtn.classList.remove('paused');
         autoStatus.classList.remove('paused');
@@ -1152,6 +1189,8 @@ function animateConfetti() {
 // ===== Settings Modal =====
 function openSettings() {
     if (!raffleSection.classList.contains('hidden') && raffleStarted && !isPaused) {
+        statusChipState.pausedBySettings = true;
+        renderStatusChips();
         togglePause();
     }
     document.getElementById('settings-modal').classList.remove('hidden');
