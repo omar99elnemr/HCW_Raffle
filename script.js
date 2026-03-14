@@ -36,6 +36,10 @@ const PRIZE_HEADER_ALIASES = {
     category: ['category', 'round', 'group']
 };
 
+const WINNERS_VIRTUALIZATION_THRESHOLD = 150;
+const WINNER_ITEM_ESTIMATED_HEIGHT = 84;
+const WINNER_VIRTUAL_BUFFER = 8;
+
 function normalizePhotoFileName(fileName) {
     if (!fileName) return '';
     return fileName.toString().split(/[\\/]/).pop().trim();
@@ -81,6 +85,31 @@ function toCellText(row, index) {
     if (!row || index === undefined || index === null) return '';
     const value = row[index];
     return value === undefined || value === null ? '' : value.toString().trim();
+}
+
+function createWinnerItemElement(winner, number, isLatest) {
+    const item = document.createElement('div');
+    item.className = `winner-item${isLatest ? ' latest' : ''}`;
+    if (isLatest) {
+        item.style.animationDelay = '0.1s';
+    }
+
+    const staffPhotoPath = getStaffPhotoPath(winner.photo);
+    const prizePhotoPath = getPrizePhotoPath(winner.prize && winner.prize.photo);
+    const prizeNameText = winner.prize && winner.prize.name ? winner.prize.name : (winner.prize || '');
+
+    item.innerHTML = `
+        <div class="winner-item-number">${number}</div>
+        <img src="${staffPhotoPath}" alt="${winner.name}" class="winner-item-photo" 
+             onerror="this.src='${STAFF_DEFAULT_PHOTO}'">
+        <div class="winner-item-info">
+            <div class="winner-item-name">${winner.name}</div>
+            <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
+        </div>
+        <div class="winner-item-prize"> ${prizeNameText}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
+    `;
+
+    return item;
 }
 
 function sanitizeEventYear(value) {
@@ -318,30 +347,7 @@ function restoreRaffle(state) {
     // Update stats
     updateStats();
     
-    // Restore winners grid
-    const emptyState = document.getElementById('empty-state');
-    if (emptyState && winners.length > 0) {
-        emptyState.style.display = 'none';
-    }
-    
-    // Add all winners to grid (in reverse order so latest is on top)
-    winners.forEach((winner, index) => {
-        const item = document.createElement('div');
-        item.className = 'winner-item';
-        const staffPhotoPath = getStaffPhotoPath(winner.photo);
-        const prizePhotoPath = getPrizePhotoPath(winner.prize && winner.prize.photo);
-        item.innerHTML = `
-            <div class="winner-item-number">${index + 1}</div>
-            <img src="${staffPhotoPath}" alt="${winner.name}" class="winner-item-photo" 
-                 onerror="this.src='${STAFF_DEFAULT_PHOTO}'">
-            <div class="winner-item-info">
-                <div class="winner-item-name">${winner.name}</div>
-                <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
-            </div>
-            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
-        `;
-        winnersGrid.appendChild(item);
-    });
+    renderWinnersGrid();
     
     // Show export button if there are winners
     if (winners.length > 0) {
@@ -648,6 +654,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderValidationSummary();
     renderStatusChips();
+
+    if (winnersGrid) {
+        winnersGrid.addEventListener('scroll', () => {
+            if (winners.length > WINNERS_VIRTUALIZATION_THRESHOLD) {
+                renderWinnersGrid();
+            }
+        });
+    }
 });
 
 if (presentationToggleBtn) {
@@ -1159,40 +1173,65 @@ function displayWinner(winner, prize) {
     winnerCard.classList.remove('hidden');
 }
 
-function addToWinnersGrid(winner, prize, number) {
-    // Hide empty state on first winner
+function renderWinnersGrid() {
+    if (!winnersGrid) return;
+
     const emptyState = document.getElementById('empty-state');
+    if (winners.length === 0) {
+        winnersGrid.innerHTML = '';
+        if (emptyState) {
+            emptyState.style.display = 'flex';
+            winnersGrid.appendChild(emptyState);
+        }
+        return;
+    }
+
     if (emptyState) {
         emptyState.style.display = 'none';
     }
-    
-    // Remove latest class from previous items
-    const previousLatest = winnersGrid.querySelector('.winner-item.latest');
-    if (previousLatest) {
-        previousLatest.classList.remove('latest');
+
+    const total = winners.length;
+    const useVirtualization = total > WINNERS_VIRTUALIZATION_THRESHOLD;
+
+    winnersGrid.innerHTML = '';
+
+    if (!useVirtualization) {
+        for (let displayIndex = 0; displayIndex < total; displayIndex++) {
+            const realIndex = total - 1 - displayIndex;
+            const winner = winners[realIndex];
+            const number = realIndex + 1;
+            winnersGrid.appendChild(createWinnerItemElement(winner, number, displayIndex === 0));
+        }
+        return;
     }
-    
-    const item = document.createElement('div');
-    item.className = 'winner-item latest';
-    item.style.animationDelay = '0.1s';
-    const staffPhotoPath = getStaffPhotoPath(winner.photo);
-    const prizePhotoPath = getPrizePhotoPath(prize.photo);
-    
-    item.innerHTML = `
-        <div class="winner-item-number">${number}</div>
-        <img src="${staffPhotoPath}" alt="${winner.name}" class="winner-item-photo" 
-             onerror="this.src='${STAFF_DEFAULT_PHOTO}'">
-        <div class="winner-item-info">
-            <div class="winner-item-name">${winner.name}</div>
-            <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
-        </div>
-        <div class="winner-item-prize"> ${prize.name}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
-    `;
-    
-    winnersGrid.insertBefore(item, winnersGrid.firstChild);
-    
-    // Auto-scroll to show latest winner (at top)
-    winnersGrid.scrollTop = 0;
+
+    const viewportHeight = winnersGrid.clientHeight || 400;
+    const scrollTop = winnersGrid.scrollTop;
+    const startIndex = Math.max(0, Math.floor(scrollTop / WINNER_ITEM_ESTIMATED_HEIGHT) - WINNER_VIRTUAL_BUFFER);
+    const visibleCount = Math.ceil(viewportHeight / WINNER_ITEM_ESTIMATED_HEIGHT) + WINNER_VIRTUAL_BUFFER * 2;
+    const endIndex = Math.min(total, startIndex + visibleCount);
+
+    const topSpacer = document.createElement('div');
+    topSpacer.style.height = `${startIndex * WINNER_ITEM_ESTIMATED_HEIGHT}px`;
+    winnersGrid.appendChild(topSpacer);
+
+    for (let displayIndex = startIndex; displayIndex < endIndex; displayIndex++) {
+        const realIndex = total - 1 - displayIndex;
+        const winner = winners[realIndex];
+        const number = realIndex + 1;
+        winnersGrid.appendChild(createWinnerItemElement(winner, number, displayIndex === 0));
+    }
+
+    const bottomSpacer = document.createElement('div');
+    bottomSpacer.style.height = `${Math.max(0, (total - endIndex) * WINNER_ITEM_ESTIMATED_HEIGHT)}px`;
+    winnersGrid.appendChild(bottomSpacer);
+}
+
+function addToWinnersGrid() {
+    if (winnersGrid) {
+        winnersGrid.scrollTop = 0;
+    }
+    renderWinnersGrid();
 }
 
 // ===== Export Winners =====
