@@ -3,9 +3,204 @@ let staffList = [];
 let prizesList = [];
 let winners = [];
 let isDrawing = false;
+let isPaused = false;
+let autoDrawInterval = null;
+let countdownInterval = null;
+let drawIntervalTime = 8000;
+let countdownTime = 0;
+let raffleStarted = false;
 let shuffleDuration = 3000;
 let settingsPin = '';
-let exportFileName = 'Raffle_Winners';
+let exportFileName = 'Raffle_Winners_Auto';
+
+// ===== Constant-time PIN comparison =====
+function pinsMatch(a, b) {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+}
+
+// ===== Audio Configuration =====
+// Prize amounts that trigger special sounds
+const PRIZE_SOUNDS = {
+    5000: 'sound-5000',
+    10000: 'sound-10000',
+    20000: 'sound-20000'
+};
+
+let soundEnabled = true;
+
+// ===== Play Prize Sound =====
+function playPrizeSound(prizeValue) {
+    if (!soundEnabled) return;
+    
+    // Extract numeric value from prize string (handles formats like "5000", "$5,000", "5000 AED", etc.)
+    const numericValue = parseInt(prizeValue.toString().replace(/[^0-9]/g, ''));
+    
+    let audioElement = null;
+    
+    // Check if this prize amount has a specific sound
+    if (PRIZE_SOUNDS[numericValue]) {
+        audioElement = document.getElementById(PRIZE_SOUNDS[numericValue]);
+    }
+    
+    // Fallback to default sound if available
+    if (!audioElement) {
+        audioElement = document.getElementById('sound-default');
+    }
+    
+    if (audioElement) {
+        // Reset audio to beginning if already playing
+        audioElement.currentTime = 0;
+        
+        // Play the sound
+        audioElement.play().catch(error => {
+            console.warn('Could not play prize sound:', error);
+        });
+    }
+}
+
+// ===== Stop All Prize Sounds =====
+function stopAllSounds() {
+    Object.values(PRIZE_SOUNDS).forEach(soundId => {
+        const audio = document.getElementById(soundId);
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    });
+    const defaultSound = document.getElementById('sound-default');
+    if (defaultSound) {
+        defaultSound.pause();
+        defaultSound.currentTime = 0;
+    }
+}
+
+// ===== Toggle Sound =====
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    if (soundBtn) {
+        soundBtn.textContent = soundEnabled ? '🔊 Sound On' : '🔇 Sound Off';
+        soundBtn.classList.toggle('muted', !soundEnabled);
+    }
+    if (!soundEnabled) {
+        stopAllSounds();
+    }
+}
+
+// ===== Persistence Keys =====
+const STORAGE_KEY = 'hcw_raffle_state';
+
+// ===== Save State to LocalStorage =====
+function saveState() {
+    const state = {
+        staffList,
+        prizesList,
+        winners,
+        isPaused,
+        drawIntervalTime,
+        shuffleDuration,
+        exportFileName,
+        raffleStarted,
+        timestamp: Date.now()
+    };
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.warn('Could not save state to localStorage:', e);
+    }
+}
+
+// ===== Load State from LocalStorage =====
+function loadState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.warn('Could not load state from localStorage:', e);
+    }
+    return null;
+}
+
+// ===== Clear Saved State =====
+function clearState() {
+    try {
+        localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+        console.warn('Could not clear state from localStorage:', e);
+    }
+}
+
+function restoreRaffle(state) {
+    staffList = state.staffList || [];
+    prizesList = state.prizesList || [];
+    winners = state.winners || [];
+    drawIntervalTime = state.drawIntervalTime || 8000;
+    shuffleDuration = state.shuffleDuration || 3000;
+    exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
+    isPaused = true; // Always restore paused so user can review
+    raffleStarted = true;
+    
+    // Hide upload, show raffle section
+    uploadSection.classList.add('hidden');
+    raffleSection.classList.remove('hidden');
+    
+    // Update stats
+    updateStats();
+    
+    // Restore winners grid
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState && winners.length > 0) {
+        emptyState.style.display = 'none';
+    }
+    
+    // Add all winners to grid (in reverse order so latest is on top)
+    winners.forEach((winner, index) => {
+        const item = document.createElement('div');
+        item.className = 'winner-item';
+        const prizePhotoHtml = winner.prize && winner.prize.photo 
+            ? `<img src="prizes/prizes_photos/${winner.prize.photo}" alt="prize" class="winner-item-prize-photo" onerror="this.style.display='none'">`
+            : '';
+        item.innerHTML = `
+            <div class="winner-item-number">${index + 1}</div>
+            <img src="staff/staff_photos/${winner.photo}" alt="${winner.name}" class="winner-item-photo" 
+                 onerror="this.src='staff/staff_photos/default.svg'">
+            <div class="winner-item-info">
+                <div class="winner-item-name">${winner.name}</div>
+                <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
+            </div>
+            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}${prizePhotoHtml}</div>
+        `;
+        winnersGrid.appendChild(item);
+    });
+    
+    // Show export button if there are winners
+    if (winners.length > 0) {
+        exportBtn.classList.remove('hidden');
+    }
+    
+    // Hide waiting message
+    waitingMessage.classList.add('hidden');
+    
+    // Set pause state
+    pauseText.textContent = '▶️ Resume';
+    pauseBtn.classList.add('paused');
+    autoStatus.classList.add('paused');
+    autoStatus.querySelector('.status-text').textContent = 'Paused (Restored)';
+    
+    // Check if raffle is complete
+    if (prizesList.length === 0) {
+        autoStatus.classList.add('hidden');
+        document.querySelector('.control-buttons').classList.add('hidden');
+        completionMessage.classList.remove('hidden');
+    }
+}
 
 // ===== DOM Elements =====
 const staffFileInput = document.getElementById('staff-file');
@@ -29,16 +224,39 @@ const winnerName = document.getElementById('winner-name');
 const winnerPosition = document.getElementById('winner-position');
 const winnerDepartment = document.getElementById('winner-department');
 const prizeName = document.getElementById('prize-name');
-const drawBtn = document.getElementById('draw-btn');
 const winnersGrid = document.getElementById('winners-grid');
 const exportBtn = document.getElementById('export-btn');
 const completionMessage = document.getElementById('completion-message');
 const confettiCanvas = document.getElementById('confetti-canvas');
 const ctx = confettiCanvas.getContext('2d');
+const autoStatus = document.getElementById('auto-status');
+const countdownEl = document.getElementById('countdown');
+const progressFill = document.getElementById('progress-fill');
+const pauseBtn = document.getElementById('pause-btn');
+const pauseText = document.getElementById('pause-text');
+const skipBtn = document.getElementById('skip-btn');
+const waitingMessage = document.getElementById('waiting-message');
 
 // ===== File Upload Handlers =====
 staffFileInput.addEventListener('change', (e) => handleFileUpload(e, 'staff'));
 prizesFileInput.addEventListener('change', (e) => handleFileUpload(e, 'prizes'));
+
+// ===== Check for Saved State on Page Load =====
+document.addEventListener('DOMContentLoaded', () => {
+    const savedState = loadState();
+    if (savedState && savedState.raffleStarted && (savedState.prizesList?.length > 0 || savedState.winners?.length > 0)) {
+        // Show confirmation dialog
+        const timeSaved = new Date(savedState.timestamp).toLocaleString();
+        const winnersCount = savedState.winners?.length || 0;
+        const prizesLeft = savedState.prizesList?.length || 0;
+        
+        if (confirm(`Found saved raffle session from ${timeSaved}.\n\nWinners drawn: ${winnersCount}\nPrizes remaining: ${prizesLeft}\n\nWould you like to resume?`)) {
+            restoreRaffle(savedState);
+        } else {
+            clearState();
+        }
+    }
+});
 
 function handleFileUpload(event, type) {
     const file = event.target.files[0];
@@ -110,25 +328,81 @@ function checkReadyToStart() {
     startBtn.disabled = !(staffList.length > 0 && prizesList.length > 0);
 }
 
-// ===== Constant-time PIN comparison =====
-function pinsMatch(a, b) {
-    if (a.length !== b.length) return false;
-    let result = 0;
-    for (let i = 0; i < a.length; i++) {
-        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-    }
-    return result === 0;
-}
-
 // ===== Start Raffle =====
 function startRaffle() {
+    // Get interval and shuffle duration from inputs
+    const intervalVal = parseFloat(document.getElementById('draw-interval').value);
+    if (!isNaN(intervalVal) && intervalVal > 0 && intervalVal <= 300) drawIntervalTime = Math.round(intervalVal * 1000);
+    const shuffleVal = parseFloat(document.getElementById('shuffle-duration').value);
+    if (!isNaN(shuffleVal) && shuffleVal > 0 && shuffleVal <= 30) shuffleDuration = Math.round(shuffleVal * 1000);
     const pin = document.getElementById('setup-pin');
     settingsPin = pin ? pin.value || '' : '';
-    const dur = parseFloat(document.getElementById('shuffle-duration').value);
-    if (!isNaN(dur) && dur > 0 && dur <= 30) shuffleDuration = Math.round(dur * 1000);
+    raffleStarted = true;
+    
     uploadSection.classList.add('hidden');
     raffleSection.classList.remove('hidden');
     updateStats();
+    
+    // Save initial state
+    saveState();
+    
+    // Start auto draw after a short delay
+    setTimeout(() => {
+        startAutoDraw();
+    }, 1000);
+}
+
+function startAutoDraw() {
+    if (prizesList.length === 0) return;
+    
+    // Perform first draw immediately
+    draw().then(() => {
+        // Set up interval for subsequent draws after winner is shown
+        setTimeout(() => {
+            scheduleNextDraw();
+        }, 3000); // Wait 3 seconds to show winner before starting countdown
+    });
+}
+
+function scheduleNextDraw() {
+    if (prizesList.length === 0 || isPaused) return;
+    
+    countdownTime = drawIntervalTime / 1000;
+    updateCountdown();
+    
+    // Clear any existing intervals
+    clearInterval(countdownInterval);
+    clearTimeout(autoDrawInterval);
+    
+    // Start countdown
+    countdownInterval = setInterval(() => {
+        if (!isPaused) {
+            countdownTime--;
+            updateCountdown();
+            
+            if (countdownTime <= 0) {
+                clearInterval(countdownInterval);
+            }
+        }
+    }, 1000);
+    
+    // Schedule next draw
+    autoDrawInterval = setTimeout(() => {
+        if (!isPaused && prizesList.length > 0) {
+            draw().then(() => {
+                // Wait 3 seconds to show winner before starting next countdown
+                setTimeout(() => {
+                    scheduleNextDraw();
+                }, 3000);
+            });
+        }
+    }, drawIntervalTime);
+}
+
+function updateCountdown() {
+    countdownEl.textContent = Math.max(0, countdownTime);
+    const progress = ((drawIntervalTime / 1000 - countdownTime) / (drawIntervalTime / 1000)) * 100;
+    progressFill.style.width = `${progress}%`;
 }
 
 function updateStats() {
@@ -137,12 +411,61 @@ function updateStats() {
     winnerCountEl.textContent = winners.length;
 }
 
+// ===== Toggle Pause =====
+function togglePause() {
+    isPaused = !isPaused;
+    
+    if (isPaused) {
+        pauseText.textContent = '▶️ Resume';
+        pauseBtn.classList.add('paused');
+        autoStatus.classList.add('paused');
+        autoStatus.querySelector('.status-text').textContent = 'Paused';
+        clearInterval(countdownInterval);
+        clearTimeout(autoDrawInterval);
+        // Save state when paused
+        saveState();
+    } else {
+        pauseText.textContent = '⏸️ Pause';
+        pauseBtn.classList.remove('paused');
+        autoStatus.classList.remove('paused');
+        autoStatus.querySelector('.status-text').textContent = 'Auto Draw Active';
+        scheduleNextDraw();
+    }
+}
+
+// ===== Reset Raffle (Start Fresh) - now opens settings modal =====
+function resetRaffle() {
+    openSettings();
+}
+
+// ===== Skip to Next Draw =====
+function skipToNext() {
+    if (isDrawing || prizesList.length === 0) return;
+    
+    clearInterval(countdownInterval);
+    clearTimeout(autoDrawInterval);
+    
+    draw().then(() => {
+        // Wait 3 seconds to show winner before starting next countdown
+        if (prizesList.length > 0 && !isPaused) {
+            setTimeout(() => {
+                scheduleNextDraw();
+            }, 3000);
+        }
+    });
+}
+
 // ===== Draw Function =====
 async function draw() {
-    if (isDrawing || staffList.length === 0 || prizesList.length === 0) return;
+    if (isDrawing || staffList.length === 0 || prizesList.length === 0) return Promise.resolve();
     
     isDrawing = true;
-    drawBtn.disabled = true;
+    pauseBtn.disabled = true;
+    skipBtn.disabled = true;
+    
+    // Hide waiting message
+    waitingMessage.classList.add('hidden');
+    
     winnerCard.classList.add('hidden');
     slotMachine.classList.remove('hidden');
 
@@ -175,10 +498,16 @@ async function draw() {
 
     // Add to winners
     winners.push({ ...winner, prize });
+    
+    // Save state after each winner
+    saveState();
 
     // Show winner
     slotMachine.classList.add('hidden');
     displayWinner(winner, prize);
+    
+    // Play prize sound based on prize value
+    playPrizeSound(prize.name);
     
     // Update stats
     updateStats();
@@ -194,17 +523,30 @@ async function draw() {
     
     // Check if all prizes are awarded
     if (prizesList.length === 0) {
+        clearInterval(countdownInterval);
+        clearTimeout(autoDrawInterval);
+        
+        // Clear saved state when raffle is complete
+        clearState();
+        
         setTimeout(() => {
-            drawBtn.classList.add('hidden');
+            autoStatus.classList.add('hidden');
+            document.querySelector('.control-buttons').classList.add('hidden');
             completionMessage.classList.remove('hidden');
             launchConfetti();
             setTimeout(launchConfetti, 500);
             setTimeout(launchConfetti, 1000);
+            
+            // Auto-export winners after completion
+            setTimeout(() => {
+                exportWinners();
+            }, 2000);
         }, 2000);
     }
     
     isDrawing = false;
-    drawBtn.disabled = false;
+    pauseBtn.disabled = false;
+    skipBtn.disabled = false;
 }
 
 function displayWinner(winner, prize) {
@@ -235,8 +577,20 @@ function displayWinner(winner, prize) {
 }
 
 function addToWinnersGrid(winner, prize, number) {
+    // Hide empty state on first winner
+    const emptyState = document.getElementById('empty-state');
+    if (emptyState) {
+        emptyState.style.display = 'none';
+    }
+    
+    // Remove latest class from previous items
+    const previousLatest = winnersGrid.querySelector('.winner-item.latest');
+    if (previousLatest) {
+        previousLatest.classList.remove('latest');
+    }
+    
     const item = document.createElement('div');
-    item.className = 'winner-item';
+    item.className = 'winner-item latest';
     item.style.animationDelay = '0.1s';
     
     const prizePhotoHtml = prize.photo 
@@ -255,6 +609,9 @@ function addToWinnersGrid(winner, prize, number) {
     `;
     
     winnersGrid.insertBefore(item, winnersGrid.firstChild);
+    
+    // Auto-scroll to show latest winner (at top)
+    winnersGrid.scrollTop = 0;
 }
 
 // ===== Export Winners =====
@@ -387,6 +744,7 @@ function animateConfetti() {
 // ===== Settings Modal =====
 function openSettings() {
     document.getElementById('settings-modal').classList.remove('hidden');
+    document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
     document.getElementById('settings-export-filename').value = exportFileName;
 }
@@ -396,6 +754,10 @@ function closeSettings() {
 }
 
 function saveSettings() {
+    const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
+    if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {
+        drawIntervalTime = Math.round(newInterval * 1000);
+    }
     const newShuffle = parseFloat(document.getElementById('settings-shuffle-duration').value);
     if (!isNaN(newShuffle) && newShuffle > 0 && newShuffle <= 30) {
         shuffleDuration = Math.round(newShuffle * 1000);
@@ -414,6 +776,7 @@ function resetRaffleWithPin() {
     }
     if (pinsMatch(pin, settingsPin)) {
         if (confirm('Are you sure you want to reset? All progress will be lost.')) {
+            clearState();
             closeSettings();
             location.reload();
         }
@@ -423,17 +786,24 @@ function resetRaffleWithPin() {
     document.getElementById('reset-pin-input').value = '';
 }
 
-// ===== Keyboard Shortcut =====
+// ===== Keyboard Shortcuts =====
 document.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') {
         closeSettings();
+        return;
     }
-    if (e.code === 'Space' && !raffleSection.classList.contains('hidden')) {
+    if (raffleSection.classList.contains('hidden')) return;
+    
+    if (e.code === 'Space') {
         e.preventDefault();
-        draw();
+        togglePause();
+    } else if (e.code === 'Enter') {
+        e.preventDefault();
+        skipToNext();
     }
 });
 
 // ===== Initialize =====
-console.log('🎰 Hyatt Staff Party Raffle App Loaded!');
+console.log('🎰 Hyatt Staff Party Raffle App - AUTO MODE Loaded!');
 console.log('📋 Upload staff list and prizes to begin.');
+console.log('⌨️ Keyboard shortcuts: SPACE = Pause/Resume, ENTER = Draw Now');
