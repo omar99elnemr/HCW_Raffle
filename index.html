@@ -57,6 +57,18 @@
                 </div>
             </div>
             
+            <!-- Settings before start -->
+            <div class="pre-start-settings">
+                <div class="setting-row">
+                    <label for="shuffle-duration">Shuffle Duration (seconds):</label>
+                    <input type="number" id="shuffle-duration" value="3" min="1" max="30" step="0.5" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <label for="setup-pin">Set PIN (for Reset):</label>
+                    <input type="password" id="setup-pin" placeholder="Enter PIN to protect reset" class="setting-input" maxlength="20">
+                </div>
+            </div>
+
             <button class="start-btn" id="start-btn" disabled onclick="startRaffle()">
                 🚀 Start Raffle
             </button>
@@ -77,6 +89,7 @@
                     <span class="stat-label">Winners</span>
                     <span class="stat-value" id="winner-count">0</span>
                 </div>
+                <button class="settings-gear-btn" id="settings-gear-btn" onclick="openSettings()" title="Settings">⚙️</button>
             </div>
 
             <!-- Winner Display -->
@@ -94,6 +107,7 @@
                     <div class="prize-reveal">
                         <div class="prize-label">🎁 Wins 🎁</div>
                         <h3 class="prize-name" id="prize-name"></h3>
+                        <img id="prize-photo" src="" alt="Prize" class="prize-photo" style="display:none;">
                     </div>
                 </div>
                 
@@ -129,6 +143,34 @@
     <footer class="footer">
         <p>© 2026 Hyatt Hotels - Annual Staff Celebration</p>
     </footer>
+
+    <!-- Settings Modal -->
+    <div class="settings-modal hidden" id="settings-modal">
+        <div class="settings-modal-overlay" onclick="closeSettings()"></div>
+        <div class="settings-modal-content">
+            <div class="settings-modal-header">
+                <h2>⚙️ Settings</h2>
+                <button class="settings-close-btn" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="settings-modal-body">
+                <div class="setting-group">
+                    <label for="settings-shuffle-duration">Shuffle Duration (seconds):</label>
+                    <input type="number" id="settings-shuffle-duration" value="3" min="1" max="30" step="0.5" class="setting-input">
+                </div>
+                <div class="setting-group">
+                    <label for="settings-export-filename">Export File Name Prefix:</label>
+                    <input type="text" id="settings-export-filename" value="Raffle_Winners" class="setting-input">
+                </div>
+                <button class="settings-save-btn" onclick="saveSettings()">💾 Save Settings</button>
+                <hr class="settings-divider">
+                <div class="setting-group reset-group">
+                    <label for="reset-pin-input">Enter PIN to Reset:</label>
+                    <input type="password" id="reset-pin-input" placeholder="Enter PIN" class="setting-input" maxlength="20">
+                    <button class="reset-danger-btn" onclick="resetRaffleWithPin()">🔄 Reset Raffle</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- SheetJS Library for Excel parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

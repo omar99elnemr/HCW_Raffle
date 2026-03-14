@@ -9,6 +9,9 @@ let countdownInterval = null;
 let drawIntervalTime = 8000;
 let countdownTime = 0;
 let raffleStarted = false;
+let shuffleDuration = 3000;
+let settingsPin = '';
+let exportFileName = 'Raffle_Winners_Auto';
 
 // ===== Audio Configuration =====
 // Prize amounts that trigger special sounds
@@ -90,6 +93,8 @@ function saveState() {
         winners,
         isPaused,
         drawIntervalTime,
+        shuffleDuration,
+        exportFileName,
         raffleStarted,
         timestamp: Date.now()
     };
@@ -122,12 +127,13 @@ function clearState() {
     }
 }
 
-// ===== Restore Raffle from Saved State =====
 function restoreRaffle(state) {
     staffList = state.staffList || [];
     prizesList = state.prizesList || [];
     winners = state.winners || [];
     drawIntervalTime = state.drawIntervalTime || 8000;
+    shuffleDuration = state.shuffleDuration || 3000;
+    exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
     isPaused = true; // Always restore paused so user can review
     raffleStarted = true;
     
@@ -148,16 +154,18 @@ function restoreRaffle(state) {
     winners.forEach((winner, index) => {
         const item = document.createElement('div');
         item.className = 'winner-item';
-        const photoPath = `photos/${winner.photo}`;
+        const prizePhotoHtml = winner.prize && winner.prize.photo 
+            ? `<img src="prizes/prizes_photos/${winner.prize.photo}" alt="prize" class="winner-item-prize-photo" onerror="this.style.display='none'">`
+            : '';
         item.innerHTML = `
             <div class="winner-item-number">${index + 1}</div>
-            <img src="${photoPath}" alt="${winner.name}" class="winner-item-photo" 
-                 onerror="this.src='photos/default.svg'">
+            <img src="staff/staff_photos/${winner.photo}" alt="${winner.name}" class="winner-item-photo" 
+                 onerror="this.src='staff/staff_photos/default.svg'">
             <div class="winner-item-info">
                 <div class="winner-item-name">${winner.name}</div>
                 <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
             </div>
-            <div class="winner-item-prize">🎁 ${winner.prize}</div>
+            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}${prizePhotoHtml}</div>
         `;
         winnersGrid.appendChild(item);
     });
@@ -298,7 +306,10 @@ function parsePrizesData(data) {
     for (let i = 1; i < data.length; i++) {
         const row = data[i];
         if (row && row[0] !== undefined && row[0] !== null && row[0] !== '') {
-            prizesList.push(row[0].toString().trim());
+            prizesList.push({
+                name: row[0].toString().trim(),
+                photo: row[1] ? row[1].toString().trim() : ''
+            });
         }
     }
 }
@@ -309,8 +320,13 @@ function checkReadyToStart() {
 
 // ===== Start Raffle =====
 function startRaffle() {
-    // Get selected interval
-    drawIntervalTime = parseInt(document.getElementById('draw-interval').value);
+    // Get interval and shuffle duration from inputs
+    const intervalVal = parseFloat(document.getElementById('draw-interval').value);
+    if (!isNaN(intervalVal) && intervalVal > 0) drawIntervalTime = Math.round(intervalVal * 1000);
+    const shuffleVal = parseFloat(document.getElementById('shuffle-duration').value);
+    if (!isNaN(shuffleVal) && shuffleVal > 0) shuffleDuration = Math.round(shuffleVal * 1000);
+    const pin = document.getElementById('setup-pin');
+    settingsPin = pin ? pin.value || '' : '';
     raffleStarted = true;
     
     uploadSection.classList.add('hidden');
@@ -407,12 +423,9 @@ function togglePause() {
     }
 }
 
-// ===== Reset Raffle (Start Fresh) =====
+// ===== Reset Raffle (Start Fresh) - now opens settings modal =====
 function resetRaffle() {
-    if (confirm('Are you sure you want to reset and start a new raffle? All progress will be lost.')) {
-        clearState();
-        location.reload();
-    }
+    openSettings();
 }
 
 // ===== Skip to Next Draw =====
@@ -447,7 +460,7 @@ async function draw() {
     slotMachine.classList.remove('hidden');
 
     // Slot machine animation
-    const duration = 3000;
+    const duration = shuffleDuration;
     const interval = 50;
     const iterations = duration / interval;
     
@@ -484,7 +497,7 @@ async function draw() {
     displayWinner(winner, prize);
     
     // Play prize sound based on prize value
-    playPrizeSound(prize);
+    playPrizeSound(prize.name);
     
     // Update stats
     updateStats();
@@ -527,17 +540,28 @@ async function draw() {
 }
 
 function displayWinner(winner, prize) {
-    // Set photo path - photos are in a subfolder
-    const photoPath = `photos/${winner.photo}`;
+    const photoPath = `staff/staff_photos/${winner.photo}`;
     winnerPhoto.src = photoPath;
     winnerPhoto.onerror = () => {
-        winnerPhoto.src = 'photos/default.svg';
+        winnerPhoto.src = 'staff/staff_photos/default.svg';
     };
     
     winnerName.textContent = winner.name;
     winnerPosition.textContent = winner.position;
     winnerDepartment.textContent = winner.department;
-    prizeName.textContent = prize;
+    prizeName.textContent = prize.name;
+    
+    // Show prize photo if exists
+    const prizePhotoEl = document.getElementById('prize-photo');
+    if (prizePhotoEl) {
+        if (prize.photo) {
+            prizePhotoEl.src = `prizes/prizes_photos/${prize.photo}`;
+            prizePhotoEl.style.display = 'block';
+            prizePhotoEl.onerror = () => { prizePhotoEl.style.display = 'none'; };
+        } else {
+            prizePhotoEl.style.display = 'none';
+        }
+    }
     
     winnerCard.classList.remove('hidden');
 }
@@ -559,17 +583,19 @@ function addToWinnersGrid(winner, prize, number) {
     item.className = 'winner-item latest';
     item.style.animationDelay = '0.1s';
     
-    const photoPath = `photos/${winner.photo}`;
+    const prizePhotoHtml = prize.photo 
+        ? `<img src="prizes/prizes_photos/${prize.photo}" alt="prize" class="winner-item-prize-photo" onerror="this.style.display='none'">`
+        : '';
     
     item.innerHTML = `
         <div class="winner-item-number">${number}</div>
-        <img src="${photoPath}" alt="${winner.name}" class="winner-item-photo" 
-             onerror="this.src='photos/default.svg'">
+        <img src="staff/staff_photos/${winner.photo}" alt="${winner.name}" class="winner-item-photo" 
+             onerror="this.src='staff/staff_photos/default.svg'">
         <div class="winner-item-info">
             <div class="winner-item-name">${winner.name}</div>
             <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
         </div>
-        <div class="winner-item-prize">🎁 ${prize}</div>
+        <div class="winner-item-prize">🎁 ${prize.name}${prizePhotoHtml}</div>
     `;
     
     winnersGrid.insertBefore(item, winnersGrid.firstChild);
@@ -586,7 +612,7 @@ function exportWinners() {
         'Name': w.name,
         'Department': w.department,
         'Position': w.position,
-        'Prize': w.prize
+        'Prize': w.prize.name
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
@@ -603,7 +629,7 @@ function exportWinners() {
         { wch: 30 }   // Prize
     ];
     
-    XLSX.writeFile(wb, `Raffle_Winners_Auto_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `${exportFileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
 
 // ===== Utility Functions =====
@@ -705,8 +731,57 @@ function animateConfetti() {
     }
 }
 
+// ===== Settings Modal =====
+function openSettings() {
+    document.getElementById('settings-modal').classList.remove('hidden');
+    document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
+    document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
+    document.getElementById('settings-export-filename').value = exportFileName;
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').classList.add('hidden');
+}
+
+function saveSettings() {
+    const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
+    if (!isNaN(newInterval) && newInterval > 0) {
+        drawIntervalTime = Math.round(newInterval * 1000);
+    }
+    const newShuffle = parseFloat(document.getElementById('settings-shuffle-duration').value);
+    if (!isNaN(newShuffle) && newShuffle > 0) {
+        shuffleDuration = Math.round(newShuffle * 1000);
+    }
+    const newExport = document.getElementById('settings-export-filename').value.trim();
+    if (newExport) exportFileName = newExport;
+    closeSettings();
+}
+
+function resetRaffleWithPin() {
+    const pin = document.getElementById('reset-pin-input').value;
+    if (!settingsPin) {
+        alert('No PIN was set. Reset is disabled.');
+        document.getElementById('reset-pin-input').value = '';
+        return;
+    }
+    if (pin === settingsPin) {
+        if (confirm('Are you sure you want to reset? All progress will be lost.')) {
+            clearState();
+            closeSettings();
+            location.reload();
+        }
+    } else {
+        alert('Incorrect PIN. Reset cancelled.');
+    }
+    document.getElementById('reset-pin-input').value = '';
+}
+
 // ===== Keyboard Shortcuts =====
 document.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') {
+        closeSettings();
+        return;
+    }
     if (raffleSection.classList.contains('hidden')) return;
     
     if (e.code === 'Space') {
