@@ -27,6 +27,7 @@
         </div>
                 <div class="header-actions">
                         <button class="header-action-btn" id="presentation-toggle-btn" type="button" title="Toggle presentation mode">🖥️ Presentation</button>
+                    <button class="header-action-btn" id="shortcut-help-btn" type="button" title="Keyboard shortcuts">?</button>
                 </div>
     </header>
 
@@ -152,6 +153,7 @@
                             <div class="winner-photo-container">
                                 <img src="" alt="Winner" id="winner-photo" class="winner-photo">
                                 <div class="winner-glow"></div>
+                                <span class="fallback-photo-badge hidden" id="winner-photo-fallback-badge">Default photo used</span>
                             </div>
                             <div class="winner-info">
                                 <h2 class="winner-name" id="winner-name"></h2>
@@ -162,6 +164,7 @@
                                 <div class="prize-label">🎁 Wins 🎁</div>
                                 <h3 class="prize-name" id="prize-name"></h3>
                                 <img id="prize-photo" src="" alt="Prize" class="prize-photo" style="display:none;">
+                                <span class="fallback-photo-badge hidden" id="prize-photo-fallback-badge">Default photo used</span>
                             </div>
                         </div>
                         
@@ -268,6 +271,24 @@
             <div class="app-dialog-actions">
                 <button id="app-dialog-cancel" class="app-dialog-btn app-dialog-btn-cancel" type="button">Cancel</button>
                 <button id="app-dialog-ok" class="app-dialog-btn app-dialog-btn-ok" type="button">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div class="shortcuts-modal hidden" id="shortcuts-modal">
+        <div class="shortcuts-modal-overlay" id="shortcuts-modal-overlay"></div>
+        <div class="shortcuts-modal-content">
+            <div class="shortcuts-modal-header">
+                <h3>⌨️ Keyboard Shortcuts</h3>
+                <button class="shortcuts-close-btn" id="shortcuts-close-btn" type="button">✕</button>
+            </div>
+            <div class="shortcuts-list">
+                <div class="shortcut-item"><span class="shortcut-key">Space</span><span class="shortcut-desc">Pause / Resume draw</span></div>
+                <div class="shortcut-item"><span class="shortcut-key">Enter</span><span class="shortcut-desc">Draw now</span></div>
+                <div class="shortcut-item"><span class="shortcut-key">P</span><span class="shortcut-desc">Toggle presentation mode</span></div>
+                <div class="shortcut-item"><span class="shortcut-key">?</span><span class="shortcut-desc">Open shortcuts help</span></div>
+                <div class="shortcut-item"><span class="shortcut-key">Esc</span><span class="shortcut-desc">Close modal/dialog</span></div>
             </div>
         </div>
     </div>

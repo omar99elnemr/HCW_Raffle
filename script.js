@@ -296,7 +296,7 @@ function restoreRaffle(state) {
                 <div class="winner-item-name">${winner.name}</div>
                 <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
             </div>
-            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'"></div>
+            <div class="winner-item-prize">🎁 ${winner.prize ? winner.prize.name : winner.prize}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
         `;
         winnersGrid.appendChild(item);
     });
@@ -362,6 +362,7 @@ const waitingMessage = document.getElementById('waiting-message');
 const validationSummary = document.getElementById('validation-summary');
 const validationSummaryBody = document.getElementById('validation-summary-body');
 const presentationToggleBtn = document.getElementById('presentation-toggle-btn');
+const shortcutHelpBtn = document.getElementById('shortcut-help-btn');
 const recoveryBanner = document.getElementById('recovery-banner');
 const recoveryBannerText = document.getElementById('recovery-banner-text');
 const resumeSessionBtn = document.getElementById('resume-session-btn');
@@ -374,6 +375,11 @@ const appDialogTitle = document.getElementById('app-dialog-title');
 const appDialogMessage = document.getElementById('app-dialog-message');
 const appDialogCancelBtn = document.getElementById('app-dialog-cancel');
 const appDialogOkBtn = document.getElementById('app-dialog-ok');
+const shortcutsModal = document.getElementById('shortcuts-modal');
+const shortcutsModalOverlay = document.getElementById('shortcuts-modal-overlay');
+const shortcutsCloseBtn = document.getElementById('shortcuts-close-btn');
+const winnerPhotoFallbackBadge = document.getElementById('winner-photo-fallback-badge');
+const prizePhotoFallbackBadge = document.getElementById('prize-photo-fallback-badge');
 
 let appDialogResolver = null;
 let appDialogMode = 'alert';
@@ -440,6 +446,16 @@ function applyPresentationMode(enabled) {
 
 function togglePresentationMode() {
     applyPresentationMode(!presentationModeEnabled);
+}
+
+function openShortcutsModal() {
+    if (!shortcutsModal) return;
+    shortcutsModal.classList.remove('hidden');
+}
+
+function closeShortcutsModal() {
+    if (!shortcutsModal) return;
+    shortcutsModal.classList.add('hidden');
 }
 
 function renderStatusChips() {
@@ -594,6 +610,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 if (presentationToggleBtn) {
     presentationToggleBtn.addEventListener('click', togglePresentationMode);
+}
+
+if (shortcutHelpBtn) {
+    shortcutHelpBtn.addEventListener('click', openShortcutsModal);
+}
+
+if (shortcutsModalOverlay) {
+    shortcutsModalOverlay.addEventListener('click', closeShortcutsModal);
+}
+
+if (shortcutsCloseBtn) {
+    shortcutsCloseBtn.addEventListener('click', closeShortcutsModal);
 }
 
 if (resumeSessionBtn) {
@@ -1036,9 +1064,21 @@ async function draw() {
 
 function displayWinner(winner, prize) {
     const photoPath = getStaffPhotoPath(winner.photo);
+    const isStaffDefaultFromData = photoPath === STAFF_DEFAULT_PHOTO;
+    if (winnerPhotoFallbackBadge) {
+        winnerPhotoFallbackBadge.classList.toggle('hidden', !isStaffDefaultFromData);
+    }
     winnerPhoto.src = photoPath;
+    winnerPhoto.onload = () => {
+        if (winnerPhotoFallbackBadge && photoPath !== STAFF_DEFAULT_PHOTO) {
+            winnerPhotoFallbackBadge.classList.add('hidden');
+        }
+    };
     winnerPhoto.onerror = () => {
         winnerPhoto.src = STAFF_DEFAULT_PHOTO;
+        if (winnerPhotoFallbackBadge) {
+            winnerPhotoFallbackBadge.classList.remove('hidden');
+        }
     };
     
     winnerName.textContent = winner.name;
@@ -1049,9 +1089,24 @@ function displayWinner(winner, prize) {
     // Show prize photo if exists
     const prizePhotoEl = document.getElementById('prize-photo');
     if (prizePhotoEl) {
-        prizePhotoEl.src = getPrizePhotoPath(prize.photo);
+        const prizePhotoPath = getPrizePhotoPath(prize.photo);
+        const isPrizeDefaultFromData = prizePhotoPath === PRIZE_DEFAULT_PHOTO;
+        if (prizePhotoFallbackBadge) {
+            prizePhotoFallbackBadge.classList.toggle('hidden', !isPrizeDefaultFromData);
+        }
+        prizePhotoEl.src = prizePhotoPath;
         prizePhotoEl.style.display = 'block';
-        prizePhotoEl.onerror = () => { prizePhotoEl.src = PRIZE_DEFAULT_PHOTO; };
+        prizePhotoEl.onload = () => {
+            if (prizePhotoFallbackBadge && prizePhotoPath !== PRIZE_DEFAULT_PHOTO) {
+                prizePhotoFallbackBadge.classList.add('hidden');
+            }
+        };
+        prizePhotoEl.onerror = () => {
+            prizePhotoEl.src = PRIZE_DEFAULT_PHOTO;
+            if (prizePhotoFallbackBadge) {
+                prizePhotoFallbackBadge.classList.remove('hidden');
+            }
+        };
     }
     
     winnerCard.classList.remove('hidden');
@@ -1084,7 +1139,7 @@ function addToWinnersGrid(winner, prize, number) {
             <div class="winner-item-name">${winner.name}</div>
             <div class="winner-item-dept">${winner.department} - ${winner.position}</div>
         </div>
-        <div class="winner-item-prize"> ${prize.name}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'"></div>
+        <div class="winner-item-prize"> ${prize.name}<img src="${prizePhotoPath}" alt="prize" class="winner-item-prize-photo" onerror="this.src='${PRIZE_DEFAULT_PHOTO}'">${prizePhotoPath === PRIZE_DEFAULT_PHOTO ? '<span class="fallback-mini-badge">default</span>' : ''}</div>
     `;
     
     winnersGrid.insertBefore(item, winnersGrid.firstChild);
@@ -1298,7 +1353,13 @@ document.addEventListener('keydown', (e) => {
     }
 
     if (e.code === 'Escape') {
+        closeShortcutsModal();
         closeSettings();
+        return;
+    }
+    if (e.key === '?') {
+        e.preventDefault();
+        openShortcutsModal();
         return;
     }
     if (e.code === 'KeyP') {
