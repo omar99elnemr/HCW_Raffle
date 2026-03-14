@@ -11,6 +11,10 @@ let countdownTime = 0;
 let raffleStarted = false;
 let shuffleDuration = 2000;
 let drawPaceMode = 'cinematic';
+let roundMode = 'off';
+let roundStartCategory = '';
+let currentRoundCategory = '';
+let roundCategories = [];
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
 const DEFAULT_EVENT_YEAR = 2026;
@@ -122,6 +126,71 @@ function sanitizeEventYear(value) {
 
 function sanitizeDrawPaceMode(value) {
     return value === 'fast' ? 'fast' : 'cinematic';
+}
+
+function sanitizeRoundMode(value) {
+    return value === 'category' ? 'category' : 'off';
+}
+
+function getAvailableRoundCategories(list) {
+    const categories = [];
+    const seen = new Set();
+    (list || []).forEach((prize) => {
+        const category = (prize && prize.category ? prize.category.toString().trim() : '');
+        if (!category || seen.has(category)) return;
+        seen.add(category);
+        categories.push(category);
+    });
+    return categories;
+}
+
+function popRandomItemByIndices(list, candidateIndices) {
+    if (!Array.isArray(candidateIndices) || candidateIndices.length === 0) return null;
+    const pickPos = Math.floor(Math.random() * candidateIndices.length);
+    const chosenIndex = candidateIndices[pickPos];
+    const lastIndex = list.length - 1;
+    const selected = list[chosenIndex];
+    list[chosenIndex] = list[lastIndex];
+    list.pop();
+    return selected;
+}
+
+function pickPrizeForDraw() {
+    if (roundMode !== 'category') {
+        return popRandomItem(prizesList);
+    }
+
+    const categories = getAvailableRoundCategories(prizesList);
+    if (categories.length === 0) {
+        return popRandomItem(prizesList);
+    }
+
+    if (!currentRoundCategory || !categories.includes(currentRoundCategory)) {
+        currentRoundCategory = (roundStartCategory && categories.includes(roundStartCategory))
+            ? roundStartCategory
+            : categories[0];
+    }
+
+    let attempts = 0;
+    while (attempts < categories.length) {
+        const candidateIndices = [];
+        for (let i = 0; i < prizesList.length; i++) {
+            if ((prizesList[i].category || '').toString().trim() === currentRoundCategory) {
+                candidateIndices.push(i);
+            }
+        }
+
+        const selected = popRandomItemByIndices(prizesList, candidateIndices);
+        if (selected) {
+            return selected;
+        }
+
+        const currentIndex = categories.indexOf(currentRoundCategory);
+        currentRoundCategory = categories[(currentIndex + 1) % categories.length];
+        attempts++;
+    }
+
+    return popRandomItem(prizesList);
 }
 
 function getPostDrawDelayMs() {
@@ -290,6 +359,9 @@ function saveState() {
         drawIntervalTime,
         shuffleDuration,
         drawPaceMode,
+        roundMode,
+        roundStartCategory,
+        currentRoundCategory,
         exportFileName,
         eventYear,
         presentationModeEnabled,
@@ -332,6 +404,9 @@ function restoreRaffle(state) {
     drawIntervalTime = state.drawIntervalTime || 3000;
     shuffleDuration = state.shuffleDuration || 2000;
     drawPaceMode = sanitizeDrawPaceMode(state.drawPaceMode || 'cinematic');
+    roundMode = sanitizeRoundMode(state.roundMode || 'off');
+    roundStartCategory = state.roundStartCategory || '';
+    currentRoundCategory = state.currentRoundCategory || '';
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
     eventYear = sanitizeEventYear(state.eventYear || DEFAULT_EVENT_YEAR);
     applyPresentationMode(!!state.presentationModeEnabled);
@@ -339,6 +414,7 @@ function restoreRaffle(state) {
     raffleStarted = true;
 
     updateEventYearUI();
+    syncRoundModeControls();
     
     // Hide upload, show raffle section
     uploadSection.classList.add('hidden');
@@ -409,6 +485,9 @@ const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
 const validationSummary = document.getElementById('validation-summary');
 const validationSummaryBody = document.getElementById('validation-summary-body');
+const roundModeInput = document.getElementById('round-mode');
+const roundStartCategoryInput = document.getElementById('round-start-category');
+const roundInfo = document.getElementById('round-info');
 const presentationToggleBtn = document.getElementById('presentation-toggle-btn');
 const shortcutHelpBtn = document.getElementById('shortcut-help-btn');
 const recoveryBanner = document.getElementById('recovery-banner');
@@ -428,6 +507,8 @@ const shortcutsModalOverlay = document.getElementById('shortcuts-modal-overlay')
 const shortcutsCloseBtn = document.getElementById('shortcuts-close-btn');
 const winnerPhotoFallbackBadge = document.getElementById('winner-photo-fallback-badge');
 const prizePhotoFallbackBadge = document.getElementById('prize-photo-fallback-badge');
+const settingsRoundModeInput = document.getElementById('settings-round-mode');
+const settingsRoundStartCategoryInput = document.getElementById('settings-round-start-category');
 
 let appDialogResolver = null;
 let appDialogMode = 'alert';
@@ -525,6 +606,56 @@ function renderStatusChips() {
     if (statusChipsLive) {
         statusChipsLive.innerHTML = html;
     }
+}
+
+function syncRoundCategorySelectOptions() {
+    roundCategories = getAvailableRoundCategories(prizesList);
+
+    const optionsHtml = ['<option value="">Auto</option>']
+        .concat(roundCategories.map((category) => `<option value="${category}">${category}</option>`))
+        .join('');
+
+    if (roundStartCategoryInput) {
+        roundStartCategoryInput.innerHTML = optionsHtml;
+        if (roundStartCategory && roundCategories.includes(roundStartCategory)) {
+            roundStartCategoryInput.value = roundStartCategory;
+        } else {
+            roundStartCategoryInput.value = '';
+        }
+    }
+
+    if (settingsRoundStartCategoryInput) {
+        settingsRoundStartCategoryInput.innerHTML = optionsHtml;
+        if (roundStartCategory && roundCategories.includes(roundStartCategory)) {
+            settingsRoundStartCategoryInput.value = roundStartCategory;
+        } else {
+            settingsRoundStartCategoryInput.value = '';
+        }
+    }
+}
+
+function updateRoundInfoUI() {
+    if (!roundInfo) return;
+    if (roundMode !== 'category') {
+        roundInfo.classList.add('hidden');
+        roundInfo.textContent = '';
+        return;
+    }
+
+    const label = currentRoundCategory || roundStartCategory || (roundCategories[0] || 'Auto');
+    roundInfo.textContent = `Round Category: ${label}`;
+    roundInfo.classList.remove('hidden');
+}
+
+function syncRoundModeControls() {
+    if (roundModeInput) {
+        roundModeInput.value = roundMode;
+    }
+    if (settingsRoundModeInput) {
+        settingsRoundModeInput.value = roundMode;
+    }
+    syncRoundCategorySelectOptions();
+    updateRoundInfoUI();
 }
 
 function getValidationErrorCount() {
@@ -632,6 +763,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if (roundModeInput) {
+        roundModeInput.addEventListener('change', () => {
+            roundMode = sanitizeRoundMode(roundModeInput.value);
+            if (settingsRoundModeInput) {
+                settingsRoundModeInput.value = roundMode;
+            }
+            currentRoundCategory = '';
+            updateRoundInfoUI();
+        });
+    }
+
+    if (settingsRoundModeInput) {
+        settingsRoundModeInput.addEventListener('change', () => {
+            roundMode = sanitizeRoundMode(settingsRoundModeInput.value);
+            if (roundModeInput) {
+                roundModeInput.value = roundMode;
+            }
+            currentRoundCategory = '';
+            updateRoundInfoUI();
+        });
+    }
+
+    if (roundStartCategoryInput) {
+        roundStartCategoryInput.addEventListener('change', () => {
+            roundStartCategory = roundStartCategoryInput.value || '';
+            if (settingsRoundStartCategoryInput) {
+                settingsRoundStartCategoryInput.value = roundStartCategory;
+            }
+            currentRoundCategory = roundStartCategory || '';
+            updateRoundInfoUI();
+        });
+    }
+
+    if (settingsRoundStartCategoryInput) {
+        settingsRoundStartCategoryInput.addEventListener('change', () => {
+            roundStartCategory = settingsRoundStartCategoryInput.value || '';
+            if (roundStartCategoryInput) {
+                roundStartCategoryInput.value = roundStartCategory;
+            }
+            currentRoundCategory = roundStartCategory || '';
+            updateRoundInfoUI();
+        });
+    }
+
     if (uploadYearInput) {
         uploadYearInput.addEventListener('change', () => {
             eventYear = sanitizeEventYear(uploadYearInput.value);
@@ -654,6 +829,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     renderValidationSummary();
     renderStatusChips();
+    syncRoundModeControls();
 
     if (winnersGrid) {
         winnersGrid.addEventListener('scroll', () => {
@@ -882,6 +1058,7 @@ function parsePrizesData(data) {
     }
 
     validationState.prizes.loadedCount = prizesList.length;
+    syncRoundCategorySelectOptions();
 }
 
 function checkReadyToStart() {
@@ -898,6 +1075,10 @@ function startRaffle() {
 
     const drawPaceModeInput = document.getElementById('draw-pace-mode');
     drawPaceMode = sanitizeDrawPaceMode(drawPaceModeInput ? drawPaceModeInput.value : 'cinematic');
+    roundMode = sanitizeRoundMode(roundModeInput ? roundModeInput.value : 'off');
+    roundStartCategory = roundStartCategoryInput ? (roundStartCategoryInput.value || '') : '';
+    currentRoundCategory = roundStartCategory || '';
+    updateRoundInfoUI();
 
     // Get interval and shuffle duration from inputs
     const intervalVal = parseFloat(document.getElementById('draw-interval').value);
@@ -1059,7 +1240,7 @@ async function draw() {
 
     // Select and remove in O(1) average-time by swap-and-pop
     const winner = popRandomItem(staffList);
-    const prize = popRandomItem(prizesList);
+    const prize = pickPrizeForDraw();
     if (!winner || !prize) {
         isDrawing = false;
         pauseBtn.disabled = false;
@@ -1067,8 +1248,12 @@ async function draw() {
         return Promise.resolve();
     }
 
+    const appliedRoundCategory = roundMode === 'category'
+        ? (currentRoundCategory || roundStartCategory || prize.category || '')
+        : (prize.category || '');
+
     // Add to winners
-    winners.push({ ...winner, prize });
+    winners.push({ ...winner, prize, roundCategory: appliedRoundCategory });
     
     // Save state after each winner
     saveState();
@@ -1085,6 +1270,7 @@ async function draw() {
     
     // Update stats
     updateStats();
+    updateRoundInfoUI();
     
     // Add to winners grid
     addToWinnersGrid(winner, prize, winners.length);
@@ -1242,7 +1428,9 @@ function exportWinners() {
         'Name': w.name,
         'Department': w.department,
         'Position': w.position,
-        'Prize': w.prize.name
+        'Prize': w.prize.name,
+        'Category': w.prize.category || '',
+        'Round Category': w.roundCategory || ''
     }));
     
     const ws = XLSX.utils.json_to_sheet(data);
@@ -1256,7 +1444,9 @@ function exportWinners() {
         { wch: 25 },  // Name
         { wch: 20 },  // Department
         { wch: 25 },  // Position
-        { wch: 30 }   // Prize
+        { wch: 30 },  // Prize
+        { wch: 20 },  // Category
+        { wch: 24 }   // Round Category
     ];
     
     XLSX.writeFile(wb, `${exportFileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
@@ -1371,6 +1561,12 @@ function openSettings() {
     document.getElementById('settings-modal').classList.remove('hidden');
     document.getElementById('settings-event-year').value = eventYear;
     document.getElementById('settings-draw-pace-mode').value = drawPaceMode;
+    if (settingsRoundModeInput) {
+        settingsRoundModeInput.value = roundMode;
+    }
+    if (settingsRoundStartCategoryInput) {
+        settingsRoundStartCategoryInput.value = roundStartCategory || '';
+    }
     document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
     document.getElementById('settings-export-filename').value = exportFileName;
@@ -1389,6 +1585,11 @@ function saveSettings() {
     if (uploadPaceModeInput) {
         uploadPaceModeInput.value = drawPaceMode;
     }
+
+    roundMode = sanitizeRoundMode(settingsRoundModeInput ? settingsRoundModeInput.value : 'off');
+    roundStartCategory = settingsRoundStartCategoryInput ? (settingsRoundStartCategoryInput.value || '') : '';
+    currentRoundCategory = roundStartCategory || '';
+    syncRoundModeControls();
 
     const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
     if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {

@@ -1302,6 +1302,23 @@ body.presentation-mode .prize-photo {
     line-height: 1.45;
     white-space: pre-line;
 }
+.round-controls {
+    width: min(1100px, 100%);
+    display: flex;
+    gap: 10px;
+}
+
+.round-controls .interval-setting {
+    flex: 1;
+    min-width: 0;
+}
+
+.round-info {
+    font-size: 0.8rem;
+    color: #8df2de;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
 
 /* ===== Settings Gear Button ===== */
 .settings-gear-btn {
@@ -1380,6 +1397,10 @@ body.presentation-mode .prize-photo {
         font-size: 1rem;
     }
 
+    
+        .round-controls {
+            flex-direction: column;
+        }
     .prize-photo {
         max-width: 72px;
         max-height: 72px;

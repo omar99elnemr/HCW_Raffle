@@ -110,6 +110,22 @@
                 <div class="validation-title">Validation Summary</div>
                 <div class="validation-body" id="validation-summary-body">Upload both staff and prizes files to validate data before starting.</div>
             </div>
+
+            <div class="round-controls">
+                <div class="interval-setting">
+                    <label for="round-mode">Prize Rounds:</label>
+                    <select id="round-mode" class="setting-input">
+                        <option value="off" selected>Off</option>
+                        <option value="category">By Category</option>
+                    </select>
+                </div>
+                <div class="interval-setting">
+                    <label for="round-start-category">Start Category:</label>
+                    <select id="round-start-category" class="setting-input">
+                        <option value="">Auto</option>
+                    </select>
+                </div>
+            </div>
             
             <button class="start-btn" id="start-btn" disabled onclick="startRaffle()">
                 🚀 Start Auto Raffle
@@ -142,6 +158,7 @@
                     <div class="auto-status" id="auto-status">
                         <div class="status-text">Auto Draw Active</div>
                         <div class="next-draw">Next draw in: <span id="countdown">--</span>s</div>
+                        <div class="round-info hidden" id="round-info"></div>
                         <div class="progress-bar">
                             <div class="progress-fill" id="progress-fill"></div>
                         </div>
@@ -237,6 +254,19 @@
                     <select id="settings-draw-pace-mode" class="setting-input">
                         <option value="cinematic" selected>Cinematic</option>
                         <option value="fast">Fast</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="settings-round-mode">Prize Rounds:</label>
+                    <select id="settings-round-mode" class="setting-input">
+                        <option value="off" selected>Off</option>
+                        <option value="category">By Category</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="settings-round-start-category">Start Category:</label>
+                    <select id="settings-round-start-category" class="setting-input">
+                        <option value="">Auto</option>
                     </select>
                 </div>
                 <div class="setting-group">
