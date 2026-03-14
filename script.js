@@ -12,6 +12,8 @@ let raffleStarted = false;
 let shuffleDuration = 2000;
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
+const DEFAULT_EVENT_YEAR = 2026;
+let eventYear = DEFAULT_EVENT_YEAR;
 
 const STAFF_PHOTO_DIR = 'staff/staff_photos';
 const PRIZE_PHOTO_DIR = 'prizes/prizes_photos';
@@ -31,6 +33,33 @@ function getStaffPhotoPath(fileName) {
 function getPrizePhotoPath(fileName) {
     const normalized = normalizePhotoFileName(fileName);
     return normalized ? `${PRIZE_PHOTO_DIR}/${normalized}` : PRIZE_DEFAULT_PHOTO;
+}
+
+function sanitizeEventYear(value) {
+    const parsed = parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed < 2000 || parsed > 2100) {
+        return DEFAULT_EVENT_YEAR;
+    }
+    return parsed;
+}
+
+function updateEventYearUI() {
+    const yearText = eventYear.toString();
+    const titleEl = document.getElementById('event-title-text');
+    if (titleEl) {
+        titleEl.textContent = `🎉 Annual Staff Party ${yearText} 🎉`;
+    }
+    document.title = `Hyatt Annual Staff Party Raffle ${yearText} - Auto Draw`;
+
+    const uploadYearInput = document.getElementById('event-year');
+    if (uploadYearInput) {
+        uploadYearInput.value = yearText;
+    }
+
+    const settingsYearInput = document.getElementById('settings-event-year');
+    if (settingsYearInput) {
+        settingsYearInput.value = yearText;
+    }
 }
 
 // ===== Constant-time PIN comparison =====
@@ -125,6 +154,7 @@ function saveState() {
         drawIntervalTime,
         shuffleDuration,
         exportFileName,
+        eventYear,
         raffleStarted,
         timestamp: Date.now()
     };
@@ -164,8 +194,11 @@ function restoreRaffle(state) {
     drawIntervalTime = state.drawIntervalTime || 3000;
     shuffleDuration = state.shuffleDuration || 2000;
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
+    eventYear = sanitizeEventYear(state.eventYear || DEFAULT_EVENT_YEAR);
     isPaused = true; // Always restore paused so user can review
     raffleStarted = true;
+
+    updateEventYearUI();
     
     // Hide upload, show raffle section
     uploadSection.classList.add('hidden');
@@ -328,6 +361,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         pinInput.value = '1111';
     }
 
+    const uploadYearInput = document.getElementById('event-year');
+    const settingsYearInput = document.getElementById('settings-event-year');
+    updateEventYearUI();
+
+    if (uploadYearInput) {
+        uploadYearInput.addEventListener('change', () => {
+            eventYear = sanitizeEventYear(uploadYearInput.value);
+            updateEventYearUI();
+        });
+    }
+
+    if (settingsYearInput) {
+        settingsYearInput.addEventListener('change', () => {
+            eventYear = sanitizeEventYear(settingsYearInput.value);
+            updateEventYearUI();
+        });
+    }
+
     const savedState = loadState();
     if (savedState && savedState.raffleStarted && (savedState.prizesList?.length > 0 || savedState.winners?.length > 0)) {
         // Show confirmation dialog
@@ -455,6 +506,10 @@ function checkReadyToStart() {
 
 // ===== Start Raffle =====
 function startRaffle() {
+    const yearInput = document.getElementById('event-year');
+    eventYear = sanitizeEventYear(yearInput ? yearInput.value : DEFAULT_EVENT_YEAR);
+    updateEventYearUI();
+
     // Get interval and shuffle duration from inputs
     const intervalVal = parseFloat(document.getElementById('draw-interval').value);
     if (!isNaN(intervalVal) && intervalVal > 0 && intervalVal <= 300) drawIntervalTime = Math.round(intervalVal * 1000);
@@ -866,6 +921,7 @@ function openSettings() {
         togglePause();
     }
     document.getElementById('settings-modal').classList.remove('hidden');
+    document.getElementById('settings-event-year').value = eventYear;
     document.getElementById('settings-draw-interval').value = drawIntervalTime / 1000;
     document.getElementById('settings-shuffle-duration').value = shuffleDuration / 1000;
     document.getElementById('settings-export-filename').value = exportFileName;
@@ -876,6 +932,9 @@ function closeSettings() {
 }
 
 function saveSettings() {
+    const newEventYear = sanitizeEventYear(document.getElementById('settings-event-year').value);
+    eventYear = newEventYear;
+
     const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
     if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {
         drawIntervalTime = Math.round(newInterval * 1000);
@@ -886,6 +945,8 @@ function saveSettings() {
     }
     const newExport = document.getElementById('settings-export-filename').value.trim();
     if (newExport) exportFileName = newExport;
+    updateEventYearUI();
+    saveState();
     closeSettings();
 }
 
