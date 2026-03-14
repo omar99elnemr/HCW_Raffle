@@ -1,11 +1,11 @@
-Prize,Photo
-20000 EGP,
-20000 EGP,
-بوتجاز,
-10000 EGP,
-5000 EGP,
-5000 EGP,
-ثلاجة,
-2000 EGP,
-1000 EGP,
-1000 EGP,
+Prize,Photo,Category
+20000 EGP,,Cash
+20000 EGP,,Cash
+بوتجاز,,Appliance
+10000 EGP,,Cash
+5000 EGP,,Cash
+5000 EGP,,Cash
+ثلاجة,,Appliance
+2000 EGP,,Cash
+1000 EGP,,Cash
+1000 EGP,,Cash

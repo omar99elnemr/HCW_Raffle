@@ -8,17 +8,26 @@ A beautiful, interactive raffle web application for the Hyatt Regency & Hyatt Ce
 ## ✨ Features
 
 - **Excel File Support**: Upload staff list and prizes from Excel (.xlsx, .xls) or CSV files
+- **Configurable Party Year**: Update the event year directly from the UI
+- **Draw Pace Mode**: Choose `Cinematic` or `Fast` draw pacing
 - **Auto Draw Mode**: Continuous automated drawing with configurable countdown between draws
 - **Animated Draw**: Exciting slot-machine style animation when drawing winners
+- **Validation Summary**: Blocks start when data has duplicate IDs, missing required fields, or invalid headers
 - **Winner Display**: Shows winner's photo, name, position, department, prize name, and prize photo
+- **Fallback Photo Indicators**: Shows when default image is used for missing/failed photos
 - **Confetti Effects**: Celebratory confetti animation on each win
 - **Prize Sound Effects**: Audio cues triggered by prize value
+- **Status Chips**: Live chips for parsing, settings-pause, and recovered sessions
 - **Winners List**: Live-updating split-screen list of all winners with prize photos
+- **Virtualized Winners List**: Keeps long winner histories responsive on large events
+- **Category Rounds**: Optional category-based prize rounds (e.g., Cash, Appliance)
 - **Export Function**: Download winners list as Excel file (auto-exports on completion)
-- **Session Persistence**: Raffle state saved to localStorage — resume after page reload
+- **Session Persistence + Recovery Banner**: Saved raffle can be resumed or cleared from a visible banner
+- **Big-Screen Presentation Mode**: One-click projector-friendly display mode
+- **Styled Dialogs**: In-app styled confirmations/alerts instead of browser popups
 - **Settings Modal**: Adjust timing, export filename, and reset (PIN-protected) mid-raffle
 - **Responsive Design**: Works on desktop, tablet, and mobile
-- **Keyboard Support**: SPACE = Pause/Resume, ENTER = Draw Now, ESC = Close Settings
+- **Keyboard Support**: SPACE = Pause/Resume, ENTER = Draw Now, `P` = Presentation mode, `?` = Shortcut help, ESC = Close modal
 
 ## 📁 Project Structure
 
@@ -31,7 +40,7 @@ HCW_Raffle/
 ├── regency.jpg             # Hyatt Regency logo
 ├── centric.jpg             # Hyatt Centric logo
 ├── sample_staff.csv        # Sample staff data
-├── sample_prizes.csv       # Sample prizes data (Prize, Photo columns)
+├── sample_prizes.csv       # Sample prizes data (Prize, Photo, Category columns)
 ├── staff/
 │   └── staff_photos/       # Staff photos folder (named by staff ID)
 │       └── default.svg     # Fallback photo
@@ -54,13 +63,13 @@ HCW_Raffle/
 | 2166 | Sara    | F&B        | Restaurant Manager    | 2166.jpg |
 
 ### Prizes List (prizes.xlsx / prizes.csv)
-| Prize       | Photo         |
-|-------------|---------------|
-| 20000 AED   | prize1.jpg    |
-| 10000 AED   |               |
-| 5000 AED    | prize3.jpg    |
+| Prize       | Photo         | Category  |
+|-------------|---------------|-----------|
+| 20000 AED   | prize1.jpg    | Cash      |
+| 10000 AED   |               | Cash      |
+| Air Fryer   | prize3.jpg    | Appliance |
 
-The **Photo** column is optional. When provided, the filename must exist under `prizes/prizes_photos/`.
+The **Photo** and **Category** columns are optional. When provided, photo filenames must exist under `prizes/prizes_photos/`.
 
 ## 🚀 How to Use
 
@@ -83,8 +92,11 @@ The **Photo** column is optional. When provided, the filename must exist under `
    ```
 
 5. **Configure Settings** (before starting):
+   - Set **Party Year**
+   - Set **Draw Pace Mode** (`Cinematic` or `Fast`)
    - Set **Shuffle Duration** (slot-machine animation length, seconds)
    - Set **Time Between Draws** (countdown between automatic draws, seconds)
+   - Optional: enable **Prize Rounds by Category**
    - Set a **PIN** to protect the mid-raffle reset function
 
 6. **Upload Files**:
@@ -117,8 +129,8 @@ Edit the CSS variables in `styles.css`:
 ### Timing
 Adjust defaults in `script.js`:
 ```javascript
-let drawIntervalTime = 8000;  // ms between draws
-let shuffleDuration  = 3000;  // ms for slot-machine animation
+let drawIntervalTime = 3000;  // ms between draws
+let shuffleDuration  = 2000;  // ms for slot-machine animation
 ```
 These can also be changed live via the **⚙️ Settings** modal during the raffle.
 
