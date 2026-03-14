@@ -52,6 +52,33 @@ body {
     flex-shrink: 0;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+}
+
+.header-action-btn {
+    border: 1px solid rgba(108, 92, 231, 0.55);
+    border-radius: 999px;
+    background: rgba(108, 92, 231, 0.18);
+    color: var(--text-light);
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.header-action-btn:hover {
+    background: rgba(108, 92, 231, 0.35);
+    transform: translateY(-1px);
+}
+
+body.presentation-mode .header-action-btn {
+    border-color: rgba(0, 184, 148, 0.6);
+    background: rgba(0, 184, 148, 0.2);
+}
+
 .hotel-logo {
     display: flex;
     flex-direction: column;
@@ -405,6 +432,10 @@ body {
     overflow: hidden;
 }
 
+body.presentation-mode .split-container {
+    gap: 0;
+}
+
 .left-panel {
     flex: 0 0 35%;
     display: flex;
@@ -427,6 +458,48 @@ body {
     padding: 15px;
     border: 1px solid rgba(212, 175, 55, 0.2);
     overflow: hidden;
+}
+
+body.presentation-mode .right-panel {
+    display: none;
+}
+
+body.presentation-mode .left-panel {
+    flex: 1;
+}
+
+body.presentation-mode #sound-toggle-btn,
+body.presentation-mode #settings-btn {
+    display: none;
+}
+
+body.presentation-mode .winner-card {
+    max-width: 640px;
+    padding: 24px;
+}
+
+body.presentation-mode .winner-photo-container,
+body.presentation-mode .winner-photo {
+    width: 150px;
+    height: 150px;
+}
+
+body.presentation-mode .winner-name {
+    font-size: 2.2rem;
+}
+
+body.presentation-mode .winner-position,
+body.presentation-mode .winner-department {
+    font-size: 1.2rem;
+}
+
+body.presentation-mode .prize-name {
+    font-size: 2rem;
+}
+
+body.presentation-mode .prize-photo {
+    max-width: 140px;
+    max-height: 140px;
 }
 
 .right-panel .section-title {

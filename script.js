@@ -20,6 +20,7 @@ const STAFF_PHOTO_DIR = 'staff/staff_photos';
 const PRIZE_PHOTO_DIR = 'prizes/prizes_photos';
 const STAFF_DEFAULT_PHOTO = `${STAFF_PHOTO_DIR}/default.svg`;
 const PRIZE_DEFAULT_PHOTO = `${PRIZE_PHOTO_DIR}/default.svg`;
+const PRESENTATION_MODE_KEY = 'hcw_presentation_mode';
 
 const STAFF_HEADER_ALIASES = {
     id: ['id', 'staffid', 'employeeid', 'empid', 'number', 'no'],
@@ -220,6 +221,7 @@ function saveState() {
         drawPaceMode,
         exportFileName,
         eventYear,
+        presentationModeEnabled,
         raffleStarted,
         timestamp: Date.now()
     };
@@ -261,6 +263,7 @@ function restoreRaffle(state) {
     drawPaceMode = sanitizeDrawPaceMode(state.drawPaceMode || 'cinematic');
     exportFileName = state.exportFileName || 'Raffle_Winners_Auto';
     eventYear = sanitizeEventYear(state.eventYear || DEFAULT_EVENT_YEAR);
+    applyPresentationMode(!!state.presentationModeEnabled);
     isPaused = true; // Always restore paused so user can review
     raffleStarted = true;
 
@@ -358,6 +361,7 @@ const skipBtn = document.getElementById('skip-btn');
 const waitingMessage = document.getElementById('waiting-message');
 const validationSummary = document.getElementById('validation-summary');
 const validationSummaryBody = document.getElementById('validation-summary-body');
+const presentationToggleBtn = document.getElementById('presentation-toggle-btn');
 const recoveryBanner = document.getElementById('recovery-banner');
 const recoveryBannerText = document.getElementById('recovery-banner-text');
 const resumeSessionBtn = document.getElementById('resume-session-btn');
@@ -374,6 +378,7 @@ const appDialogOkBtn = document.getElementById('app-dialog-ok');
 let appDialogResolver = null;
 let appDialogMode = 'alert';
 let pendingRecoveredState = null;
+let presentationModeEnabled = false;
 let statusChipState = {
     parsing: false,
     pausedBySettings: false,
@@ -418,6 +423,23 @@ function showStyledAlert(message, title = 'Notice') {
 
 function showStyledConfirm(message, title = 'Please Confirm') {
     return openAppDialog({ title, message, mode: 'confirm' });
+}
+
+function applyPresentationMode(enabled) {
+    presentationModeEnabled = !!enabled;
+    document.body.classList.toggle('presentation-mode', presentationModeEnabled);
+    if (presentationToggleBtn) {
+        presentationToggleBtn.textContent = presentationModeEnabled ? '🖥️ Presentation On' : '🖥️ Presentation Off';
+    }
+    try {
+        localStorage.setItem(PRESENTATION_MODE_KEY, presentationModeEnabled ? '1' : '0');
+    } catch (e) {
+        console.warn('Could not persist presentation mode:', e);
+    }
+}
+
+function togglePresentationMode() {
+    applyPresentationMode(!presentationModeEnabled);
 }
 
 function renderStatusChips() {
@@ -518,6 +540,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const settingsPaceModeInput = document.getElementById('settings-draw-pace-mode');
     updateEventYearUI();
 
+    let savedPresentationMode = false;
+    try {
+        savedPresentationMode = localStorage.getItem(PRESENTATION_MODE_KEY) === '1';
+    } catch (e) {
+        console.warn('Could not read presentation mode preference:', e);
+    }
+    applyPresentationMode(savedPresentationMode);
+
     if (uploadPaceModeInput) {
         uploadPaceModeInput.value = drawPaceMode;
         uploadPaceModeInput.addEventListener('change', () => {
@@ -561,6 +591,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderValidationSummary();
     renderStatusChips();
 });
+
+if (presentationToggleBtn) {
+    presentationToggleBtn.addEventListener('click', togglePresentationMode);
+}
 
 if (resumeSessionBtn) {
     resumeSessionBtn.addEventListener('click', () => {
@@ -1265,6 +1299,11 @@ document.addEventListener('keydown', (e) => {
 
     if (e.code === 'Escape') {
         closeSettings();
+        return;
+    }
+    if (e.code === 'KeyP') {
+        e.preventDefault();
+        togglePresentationMode();
         return;
     }
     if (raffleSection.classList.contains('hidden')) return;
