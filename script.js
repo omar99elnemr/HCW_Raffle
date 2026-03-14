@@ -110,12 +110,22 @@ function checkReadyToStart() {
     startBtn.disabled = !(staffList.length > 0 && prizesList.length > 0);
 }
 
+// ===== Constant-time PIN comparison =====
+function pinsMatch(a, b) {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+}
+
 // ===== Start Raffle =====
 function startRaffle() {
     const pin = document.getElementById('setup-pin');
     settingsPin = pin ? pin.value || '' : '';
     const dur = parseFloat(document.getElementById('shuffle-duration').value);
-    if (!isNaN(dur) && dur > 0) shuffleDuration = Math.round(dur * 1000);
+    if (!isNaN(dur) && dur > 0 && dur <= 30) shuffleDuration = Math.round(dur * 1000);
     uploadSection.classList.add('hidden');
     raffleSection.classList.remove('hidden');
     updateStats();
@@ -387,7 +397,7 @@ function closeSettings() {
 
 function saveSettings() {
     const newShuffle = parseFloat(document.getElementById('settings-shuffle-duration').value);
-    if (!isNaN(newShuffle) && newShuffle > 0) {
+    if (!isNaN(newShuffle) && newShuffle > 0 && newShuffle <= 30) {
         shuffleDuration = Math.round(newShuffle * 1000);
     }
     const newExport = document.getElementById('settings-export-filename').value.trim();
@@ -402,7 +412,7 @@ function resetRaffleWithPin() {
         document.getElementById('reset-pin-input').value = '';
         return;
     }
-    if (pin === settingsPin) {
+    if (pinsMatch(pin, settingsPin)) {
         if (confirm('Are you sure you want to reset? All progress will be lost.')) {
             closeSettings();
             location.reload();

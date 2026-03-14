@@ -13,6 +13,16 @@ let shuffleDuration = 3000;
 let settingsPin = '';
 let exportFileName = 'Raffle_Winners_Auto';
 
+// ===== Constant-time PIN comparison =====
+function pinsMatch(a, b) {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+        result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+}
+
 // ===== Audio Configuration =====
 // Prize amounts that trigger special sounds
 const PRIZE_SOUNDS = {
@@ -322,9 +332,9 @@ function checkReadyToStart() {
 function startRaffle() {
     // Get interval and shuffle duration from inputs
     const intervalVal = parseFloat(document.getElementById('draw-interval').value);
-    if (!isNaN(intervalVal) && intervalVal > 0) drawIntervalTime = Math.round(intervalVal * 1000);
+    if (!isNaN(intervalVal) && intervalVal > 0 && intervalVal <= 300) drawIntervalTime = Math.round(intervalVal * 1000);
     const shuffleVal = parseFloat(document.getElementById('shuffle-duration').value);
-    if (!isNaN(shuffleVal) && shuffleVal > 0) shuffleDuration = Math.round(shuffleVal * 1000);
+    if (!isNaN(shuffleVal) && shuffleVal > 0 && shuffleVal <= 30) shuffleDuration = Math.round(shuffleVal * 1000);
     const pin = document.getElementById('setup-pin');
     settingsPin = pin ? pin.value || '' : '';
     raffleStarted = true;
@@ -745,11 +755,11 @@ function closeSettings() {
 
 function saveSettings() {
     const newInterval = parseFloat(document.getElementById('settings-draw-interval').value);
-    if (!isNaN(newInterval) && newInterval > 0) {
+    if (!isNaN(newInterval) && newInterval > 0 && newInterval <= 300) {
         drawIntervalTime = Math.round(newInterval * 1000);
     }
     const newShuffle = parseFloat(document.getElementById('settings-shuffle-duration').value);
-    if (!isNaN(newShuffle) && newShuffle > 0) {
+    if (!isNaN(newShuffle) && newShuffle > 0 && newShuffle <= 30) {
         shuffleDuration = Math.round(newShuffle * 1000);
     }
     const newExport = document.getElementById('settings-export-filename').value.trim();
@@ -764,7 +774,7 @@ function resetRaffleWithPin() {
         document.getElementById('reset-pin-input').value = '';
         return;
     }
-    if (pin === settingsPin) {
+    if (pinsMatch(pin, settingsPin)) {
         if (confirm('Are you sure you want to reset? All progress will be lost.')) {
             clearState();
             closeSettings();
