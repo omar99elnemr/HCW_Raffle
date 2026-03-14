@@ -514,6 +514,8 @@ let appDialogResolver = null;
 let appDialogMode = 'alert';
 let pendingRecoveredState = null;
 let presentationModeEnabled = false;
+let isRenderingWinnersGrid = false;
+let winnersRenderScheduled = false;
 let statusChipState = {
     parsing: false,
     pausedBySettings: false,
@@ -611,27 +613,29 @@ function renderStatusChips() {
 function syncRoundCategorySelectOptions() {
     roundCategories = getAvailableRoundCategories(prizesList);
 
-    const optionsHtml = ['<option value="">Auto</option>']
-        .concat(roundCategories.map((category) => `<option value="${category}">${category}</option>`))
-        .join('');
+    const applyOptions = (selectEl) => {
+        if (!selectEl) return;
+        selectEl.innerHTML = '';
 
-    if (roundStartCategoryInput) {
-        roundStartCategoryInput.innerHTML = optionsHtml;
-        if (roundStartCategory && roundCategories.includes(roundStartCategory)) {
-            roundStartCategoryInput.value = roundStartCategory;
-        } else {
-            roundStartCategoryInput.value = '';
-        }
-    }
+        const autoOption = document.createElement('option');
+        autoOption.value = '';
+        autoOption.textContent = 'Auto';
+        selectEl.appendChild(autoOption);
 
-    if (settingsRoundStartCategoryInput) {
-        settingsRoundStartCategoryInput.innerHTML = optionsHtml;
-        if (roundStartCategory && roundCategories.includes(roundStartCategory)) {
-            settingsRoundStartCategoryInput.value = roundStartCategory;
-        } else {
-            settingsRoundStartCategoryInput.value = '';
-        }
-    }
+        roundCategories.forEach((category) => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            selectEl.appendChild(option);
+        });
+
+        selectEl.value = (roundStartCategory && roundCategories.includes(roundStartCategory))
+            ? roundStartCategory
+            : '';
+    };
+
+    applyOptions(roundStartCategoryInput);
+    applyOptions(settingsRoundStartCategoryInput);
 }
 
 function updateRoundInfoUI() {
@@ -834,7 +838,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (winnersGrid) {
         winnersGrid.addEventListener('scroll', () => {
             if (winners.length > WINNERS_VIRTUALIZATION_THRESHOLD) {
-                renderWinnersGrid();
+                scheduleWinnersGridRender();
             }
         });
     }
@@ -1361,56 +1365,72 @@ function displayWinner(winner, prize) {
 
 function renderWinnersGrid() {
     if (!winnersGrid) return;
+    if (isRenderingWinnersGrid) return;
 
-    const emptyState = document.getElementById('empty-state');
-    if (winners.length === 0) {
-        winnersGrid.innerHTML = '';
-        if (emptyState) {
-            emptyState.style.display = 'flex';
-            winnersGrid.appendChild(emptyState);
+    isRenderingWinnersGrid = true;
+
+    try {
+        const emptyState = document.getElementById('empty-state');
+        if (winners.length === 0) {
+            winnersGrid.innerHTML = '';
+            if (emptyState) {
+                emptyState.style.display = 'flex';
+                winnersGrid.appendChild(emptyState);
+            }
+            return;
         }
-        return;
-    }
 
-    if (emptyState) {
-        emptyState.style.display = 'none';
-    }
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
 
-    const total = winners.length;
-    const useVirtualization = total > WINNERS_VIRTUALIZATION_THRESHOLD;
+        const total = winners.length;
+        const useVirtualization = total > WINNERS_VIRTUALIZATION_THRESHOLD;
 
-    winnersGrid.innerHTML = '';
+        winnersGrid.innerHTML = '';
 
-    if (!useVirtualization) {
-        for (let displayIndex = 0; displayIndex < total; displayIndex++) {
+        if (!useVirtualization) {
+            for (let displayIndex = 0; displayIndex < total; displayIndex++) {
+                const realIndex = total - 1 - displayIndex;
+                const winner = winners[realIndex];
+                const number = realIndex + 1;
+                winnersGrid.appendChild(createWinnerItemElement(winner, number, displayIndex === 0));
+            }
+            return;
+        }
+
+        const viewportHeight = winnersGrid.clientHeight || 400;
+        const scrollTop = winnersGrid.scrollTop;
+        const startIndex = Math.max(0, Math.floor(scrollTop / WINNER_ITEM_ESTIMATED_HEIGHT) - WINNER_VIRTUAL_BUFFER);
+        const visibleCount = Math.ceil(viewportHeight / WINNER_ITEM_ESTIMATED_HEIGHT) + WINNER_VIRTUAL_BUFFER * 2;
+        const endIndex = Math.min(total, startIndex + visibleCount);
+
+        const topSpacer = document.createElement('div');
+        topSpacer.style.height = `${startIndex * WINNER_ITEM_ESTIMATED_HEIGHT}px`;
+        winnersGrid.appendChild(topSpacer);
+
+        for (let displayIndex = startIndex; displayIndex < endIndex; displayIndex++) {
             const realIndex = total - 1 - displayIndex;
             const winner = winners[realIndex];
             const number = realIndex + 1;
             winnersGrid.appendChild(createWinnerItemElement(winner, number, displayIndex === 0));
         }
-        return;
+
+        const bottomSpacer = document.createElement('div');
+        bottomSpacer.style.height = `${Math.max(0, (total - endIndex) * WINNER_ITEM_ESTIMATED_HEIGHT)}px`;
+        winnersGrid.appendChild(bottomSpacer);
+    } finally {
+        isRenderingWinnersGrid = false;
     }
+}
 
-    const viewportHeight = winnersGrid.clientHeight || 400;
-    const scrollTop = winnersGrid.scrollTop;
-    const startIndex = Math.max(0, Math.floor(scrollTop / WINNER_ITEM_ESTIMATED_HEIGHT) - WINNER_VIRTUAL_BUFFER);
-    const visibleCount = Math.ceil(viewportHeight / WINNER_ITEM_ESTIMATED_HEIGHT) + WINNER_VIRTUAL_BUFFER * 2;
-    const endIndex = Math.min(total, startIndex + visibleCount);
-
-    const topSpacer = document.createElement('div');
-    topSpacer.style.height = `${startIndex * WINNER_ITEM_ESTIMATED_HEIGHT}px`;
-    winnersGrid.appendChild(topSpacer);
-
-    for (let displayIndex = startIndex; displayIndex < endIndex; displayIndex++) {
-        const realIndex = total - 1 - displayIndex;
-        const winner = winners[realIndex];
-        const number = realIndex + 1;
-        winnersGrid.appendChild(createWinnerItemElement(winner, number, displayIndex === 0));
-    }
-
-    const bottomSpacer = document.createElement('div');
-    bottomSpacer.style.height = `${Math.max(0, (total - endIndex) * WINNER_ITEM_ESTIMATED_HEIGHT)}px`;
-    winnersGrid.appendChild(bottomSpacer);
+function scheduleWinnersGridRender() {
+    if (winnersRenderScheduled) return;
+    winnersRenderScheduled = true;
+    requestAnimationFrame(() => {
+        winnersRenderScheduled = false;
+        renderWinnersGrid();
+    });
 }
 
 function addToWinnersGrid() {
