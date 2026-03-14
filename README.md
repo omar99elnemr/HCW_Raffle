@@ -8,28 +8,40 @@ A beautiful, interactive raffle web application for the Hyatt Regency & Hyatt Ce
 ## ✨ Features
 
 - **Excel File Support**: Upload staff list and prizes from Excel (.xlsx, .xls) or CSV files
+- **Auto Draw Mode**: Continuous automated drawing with configurable countdown between draws
 - **Animated Draw**: Exciting slot-machine style animation when drawing winners
-- **Winner Display**: Shows winner's photo, name, position, department, and prize
+- **Winner Display**: Shows winner's photo, name, position, department, prize name, and prize photo
 - **Confetti Effects**: Celebratory confetti animation on each win
-- **Winners List**: Live-updating grid of all winners
-- **Export Function**: Download winners list as Excel file
+- **Prize Sound Effects**: Audio cues triggered by prize value
+- **Winners List**: Live-updating split-screen list of all winners with prize photos
+- **Export Function**: Download winners list as Excel file (auto-exports on completion)
+- **Session Persistence**: Raffle state saved to localStorage — resume after page reload
+- **Settings Modal**: Adjust timing, export filename, and reset (PIN-protected) mid-raffle
 - **Responsive Design**: Works on desktop, tablet, and mobile
-- **Keyboard Support**: Press SPACE to draw a winner
+- **Keyboard Support**: SPACE = Pause/Resume, ENTER = Draw Now, ESC = Close Settings
 
 ## 📁 Project Structure
 
 ```
 HCW_Raffle/
-├── index.html          # Main HTML file
-├── styles.css          # Styles and animations
-├── script.js           # Raffle logic
-├── README.md           # This file
-├── regency.jpg         # Hyatt Regency logo
-├── centric.jpg         # Hyatt Centric logo
-└── photos/             # Staff photos folder
-    ├── 2164.jpg
-    ├── 2165.jpg
-    └── default.jpg     # Fallback photo
+├── index.html              # Main HTML file (auto-draw raffle)
+├── styles.css              # Styles and animations
+├── script.js               # Raffle logic
+├── README.md               # This file
+├── regency.jpg             # Hyatt Regency logo
+├── centric.jpg             # Hyatt Centric logo
+├── sample_staff.csv        # Sample staff data
+├── sample_prizes.csv       # Sample prizes data (Prize, Photo columns)
+├── staff/
+│   └── staff_photos/       # Staff photos folder (named by staff ID)
+│       └── default.svg     # Fallback photo
+├── prizes/
+│   └── prizes_photos/      # Prize photos folder
+│       └── default.svg     # Fallback photo
+└── sounds/                 # Prize sound effects
+    ├── prize_5000.mp3
+    ├── prize_10000.mp3
+    └── prize_20000.mp3
 ```
 
 ## 📊 Excel File Formats
@@ -41,44 +53,53 @@ HCW_Raffle/
 | 2165 | Ahmed   | HR         | HR Manager            | 2165.jpg |
 | 2166 | Sara    | F&B        | Restaurant Manager    | 2166.jpg |
 
-### Prizes List (prizes.xlsx)
-| Prize                    |
-|--------------------------|
-| iPhone 15 Pro            |
-| iPad Air                 |
-| AirPods Pro              |
-| Gift Card $500           |
-| Weekend Stay - Suite     |
+### Prizes List (prizes.xlsx / prizes.csv)
+| Prize       | Photo         |
+|-------------|---------------|
+| 20000 AED   | prize1.jpg    |
+| 10000 AED   |               |
+| 5000 AED    | prize3.jpg    |
+
+The **Photo** column is optional. When provided, the filename must exist under `prizes/prizes_photos/`.
 
 ## 🚀 How to Use
 
 1. **Add Hotel Logos**: Place `regency.jpg` and `centric.jpg` in the root folder
 
-2. **Add Staff Photos**: Create a `photos/` subfolder and add staff photos named by their ID (e.g., `2164.jpg`)
+2. **Add Staff Photos**: Place staff photos in `staff/staff_photos/` named by employee ID (e.g., `2164.jpg`)
 
-3. **Open the App**: Double-click `index.html` or serve it with a local server:
+3. **Add Prize Photos** *(optional)*: Place prize images in `prizes/prizes_photos/` and reference filenames in the prizes Excel sheet
+
+4. **Open the App**: Double-click `index.html` or serve it with a local server:
    ```bash
    # Using Python
    python -m http.server 8000
-   
+
    # Using Node.js
    npx serve
-   
+
    # Using VS Code Live Server extension
    # Right-click index.html → "Open with Live Server"
    ```
 
-4. **Upload Files**:
-   - Click "Choose File" under Staff List and select your Excel file
-   - Click "Choose File" under Prizes List and select your Excel file
+5. **Configure Settings** (before starting):
+   - Set **Shuffle Duration** (slot-machine animation length, seconds)
+   - Set **Time Between Draws** (countdown between automatic draws, seconds)
+   - Set a **PIN** to protect the mid-raffle reset function
 
-5. **Start Raffle**: Click the "Start Raffle" button
+6. **Upload Files**:
+   - Click "Choose File" under Staff List and select your Excel/CSV file
+   - Click "Choose File" under Prizes List and select your Excel/CSV file
 
-6. **Draw Winners**: 
-   - Click the "Draw Winner" button, or
-   - Press the SPACEBAR
+7. **Start Raffle**: Click the **Start Auto Raffle** button — draws begin automatically
 
-7. **Export Results**: Click "Export Winners List" to download an Excel file with all winners
+8. **During the Raffle**:
+   - **⏸️ Pause / ▶️ Resume** — pause/resume automatic draws
+   - **⏭️ Draw Now** — skip the countdown and draw immediately
+   - **🔊 Sound** — toggle prize sound effects
+   - **⚙️ Settings** — adjust timings, export filename, or reset (PIN required)
+
+9. **Export Results**: Winners are auto-exported on completion, or click **📥 Export Winners** at any time
 
 ## 🎨 Customization
 
@@ -93,11 +114,13 @@ Edit the CSS variables in `styles.css`:
 }
 ```
 
-### Animation Speed
-In `script.js`, adjust the draw animation duration:
+### Timing
+Adjust defaults in `script.js`:
 ```javascript
-const duration = 3000; // milliseconds
+let drawIntervalTime = 8000;  // ms between draws
+let shuffleDuration  = 3000;  // ms for slot-machine animation
 ```
+These can also be changed live via the **⚙️ Settings** modal during the raffle.
 
 ## 📱 Browser Support
 
